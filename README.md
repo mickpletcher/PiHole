@@ -63,6 +63,24 @@ Assign a static IP to your Pi-hole host either via your router's DHCP reservatio
 
 If Pi-hole goes down, nothing on your network can resolve DNS. Consider running a second Pi-hole instance as a fallback. Point your router's secondary DNS at the backup so devices fail over automatically.
 
+### Health Check and Alerting
+
+Set up a simple health check that alerts you if Pi-hole stops responding. Pi-hole exposes a local API endpoint you can poll:
+
+```
+http://<pihole-ip>/admin/api.php?summary
+```
+
+If you are running n8n, this is a natural fit. Create a scheduled n8n workflow that hits the API endpoint on an interval and sends you a notification via email, Slack, or SMS if it fails to respond. This gives you network-wide visibility into Pi-hole uptime without any manual checking.
+
+To test the endpoint manually:
+
+```bash
+curl http://<pihole-ip>/admin/api.php?summary
+```
+
+A healthy Pi-hole will return a JSON response with statistics. No response or an error means something is wrong.
+
 ---
 
 ## Credits
