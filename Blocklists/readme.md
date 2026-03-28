@@ -1,6 +1,6 @@
 # Pi-hole Blocklist Collection
 
-A curated collection of 52 blocklist sources used to populate Pi-hole's block list. Covers advertising, tracking/telemetry, malicious domains, phishing, scams, fake news, stalkerware, piracy, and more. All lists are sourced from well-maintained community and security projects and are regularly reviewed and updated.
+A curated collection of 57 blocklist sources used to populate Pi-hole's block list. Covers advertising, tracking/telemetry, malicious domains, phishing, scams, fake news, stalkerware, piracy, CNAME cloaking, smart TV tracking, and more. All lists are sourced from well-maintained community and security projects and are regularly reviewed and updated.
 
 > **Disclaimer:** This is a personal curated index of community blocklist sources. No blocklist is perfect. Review before deploying on production networks.
 
@@ -10,7 +10,7 @@ A curated collection of 52 blocklist sources used to populate Pi-hole's block li
 
 | File | Description |
 |------|-------------|
-| `blocklists.txt` | Plain text file containing all 52 blocklist URLs, one per line |
+| `blocklists.txt` | Plain text file containing all 57 blocklist URLs, one per line |
 | `Import-PiHoleBlocklists.ps1` | PowerShell script to bulk import all lists into Pi-hole's gravity database |
 | `import_pihole_blocklists.py` | Python script to bulk import all lists into Pi-hole's gravity database |
 
@@ -109,7 +109,7 @@ To add lists manually via the Pi-hole admin panel:
 | Category | Description |
 |----------|-------------|
 | **Advertising** | Ad servers, ad networks, and pop-up ad domains |
-| **Tracking** | Telemetry, fingerprinting, and analytics domains |
+| **Tracking** | Telemetry, fingerprinting, analytics, and CNAME cloaking domains |
 | **Malicious** | Malware, ransomware, phishing, and scam domains |
 | **Suspicious** | Spam, referrer spam, and high-risk domains |
 | **Fake DNS / DynDNS** | Fake DNS providers and dynamic DNS abusers |
@@ -117,8 +117,10 @@ To add lists manually via the Pi-hole admin panel:
 | **Fake News** | Known fake news domains |
 | **Stalkerware** | Stalkerware and spyware indicator domains |
 | **Device Trackers** | Platform-native trackers (Amazon, Apple, TikTok, Samsung, LG, Windows/Office) |
+| **Smart TV / IoT** | Broad smart TV tracking and telemetry across all brands |
 | **URL Shorteners** | URL shortener services used to obscure malicious links |
 | **Encrypted DNS/VPN Bypass** | Domains used to circumvent DNS filtering |
+| **OISD** | Comprehensive all-in-one blocklist covering ads, tracking, and malware |
 | **Whitelist** | Approved domains excluded from blocking |
 
 ---
@@ -148,6 +150,7 @@ To add lists manually via the Pi-hole admin panel:
 | MVPS Hosts (yoyo.org) | https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext |
 | FadeMind Unchecky Ads | https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UnCheckyAds/hosts |
 | bigdargon hostsVN | https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts |
+| Disconnect.me Simple Ad | https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt |
 
 ### Tracking / Telemetry
 
@@ -157,6 +160,7 @@ To add lists manually via the Pi-hole admin panel:
 | Prigent Ads | https://v.firebog.net/hosts/Prigent-Ads.txt |
 | FadeMind 2o7Net | https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts |
 | WindowsSpyBlocker Spy | https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt |
+| NextDNS CNAME Cloaking Blocklist | https://raw.githubusercontent.com/nextdns/cname-cloaking-blocklist/master/domains |
 | Amazon Tracker DNS Blocklist | https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.amazon.txt |
 | Apple Tracker DNS Blocklist | https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.apple.txt |
 | Windows/Office Tracker Blocklist | https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.winoffice.txt |
@@ -188,6 +192,7 @@ To add lists manually via the Pi-hole admin panel:
 
 | Source | URL |
 |--------|-----|
+| Hagezi Pro | https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt |
 | Fake DNS Blocklist | https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/fake.txt |
 | Pop-Up Ads DNS Blocklist | https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/popupads.txt |
 | Threat Intelligence Feeds | https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.txt |
@@ -198,6 +203,18 @@ To add lists manually via the Pi-hole admin panel:
 | URL Shortener Blocklist | https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/urlshortener.txt |
 | Spam TLDs Adblock | https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/spam-tlds-adblock.txt |
 | Anti-Piracy DNS Blocklist | https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/anti.piracy.txt |
+
+### OISD
+
+| Source | URL |
+|--------|-----|
+| OISD Big | https://big.oisd.nl/ |
+
+### Smart TV / IoT
+
+| Source | URL |
+|--------|-----|
+| Perflyst SmartTV | https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/SmartTV.txt |
 
 ### Other
 
