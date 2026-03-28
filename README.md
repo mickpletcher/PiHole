@@ -1,114 +1,167 @@
 # Pi-hole Configuration & Blocklists
 
-A personal Pi-hole configuration repository containing a curated collection of blocklists, import scripts, and automation tips for running a well-maintained network-wide ad and threat blocker.
+This repository contains a curated collection of blocklists and tools to help you get the most out of Pi-hole — a free, open-source tool that blocks ads, trackers, and malicious websites across your entire home network at the DNS level. That means every device on your network — phones, tablets, smart TVs, laptops — gets protected automatically without installing anything on each device.
+
+If you are new to Pi-hole, think of it as a filter that sits between your devices and the internet. When a device tries to connect to a known ad or tracking domain, Pi-hole intercepts that request and blocks it before it ever reaches your device.
 
 ---
 
-## Repository Structure
+## What Is In This Repository
 
-| Folder / File | Description |
-|---------------|-------------|
-| `Blocklists/` | Blocklist URLs, import scripts, and setup instructions |
-| `Blocklists/README.md` | Full documentation for the blocklist collection |
-| `Blocklists/blocklists.txt` | All 57 blocklist URLs in plain text, one per line |
-| `Blocklists/Import-PiHoleBlocklists.ps1` | PowerShell import script |
-| `Blocklists/import_pihole_blocklists.py` | Python import script |
+| Folder / File | What It Contains |
+|---------------|-----------------|
+| `Blocklists/` | A collection of 57 blocklist sources, import scripts, and detailed setup instructions |
+| `Blocklists/README.md` | Step-by-step instructions for adding the blocklists to your Pi-hole |
+| `Blocklists/blocklists.txt` | A plain text file with all 57 blocklist URLs, one per line |
+| `Blocklists/Import-PiHoleBlocklists.ps1` | A PowerShell script that automatically adds all blocklists to Pi-hole |
+| `Blocklists/import_pihole_blocklists.py` | A Python script that does the same thing as above |
 
 ---
 
 ## Getting Started
 
-1. Install Pi-hole on your network — see the official docs at https://docs.pi-hole.net
-2. Clone or download this repository
-3. Follow the instructions in [Blocklists/README.md](Blocklists/README.md) to import the blocklist collection into your Pi-hole
+**Step 1 — Install Pi-hole**
+
+If you have not installed Pi-hole yet, follow the official installation guide at https://docs.pi-hole.net. Pi-hole runs on a Raspberry Pi or any Linux machine on your network.
+
+**Step 2 — Add the Blocklists**
+
+Once Pi-hole is installed, follow the instructions in [Blocklists/README.md](Blocklists/README.md) to add the blocklist collection to your Pi-hole. This is where the actual blocking power comes from.
+
+**Step 3 — Set Up Automation**
+
+Follow the tips below to keep your Pi-hole running smoothly with minimal ongoing maintenance.
 
 ---
 
 ## Tips for a Well-Maintained Pi-hole
 
-### Keep Your Blocklists Fresh
+---
 
-Pi-hole's blocklists do not update themselves by default. New malicious, tracking, and ad domains are added to upstream lists daily. Schedule an automatic gravity update so your protection stays current without any manual effort:
+### Tip 1 — Keep Your Blocklists Fresh Automatically
+
+Pi-hole's blocklists do not update themselves by default. New ad, tracking, and malicious domains are added to the internet every day, so if your lists never update, your protection gradually becomes less effective over time.
+
+The fix is to schedule an automatic update using a tool called **cron** — a built-in Linux feature that runs commands on a timer, like a built-in task scheduler.
+
+**How to set it up:**
+
+First, connect to your Pi-hole over SSH. If you are on Windows, open PowerShell and type:
+
+```bash
+ssh pi@<your-pihole-ip>
+```
+
+Replace `<your-pihole-ip>` with the actual IP address of your Pi-hole (for example `192.168.1.100`). You can find this in your router's admin panel under connected devices.
+
+Once connected, open the cron scheduler:
 
 ```bash
 crontab -e
 ```
 
-Add these two lines:
+If it asks you to choose an editor, type `1` and press Enter to select nano (the simplest option).
+
+Paste these two lines at the very bottom of the file:
 
 ```
 0 2 */3 * * pihole -g >> /var/log/pihole-gravity.log 2>&1
 0 3 */3 * * pihole -up >> /var/log/pihole-update.log 2>&1
 ```
 
-This runs a gravity update and a Pi-hole software update every 3 days. See [Blocklists/README.md](Blocklists/README.md) for full instructions.
+Save and exit by pressing `Ctrl+X`, then `Y`, then `Enter`.
 
-### Keep Pi-hole Software Up to Date
+**What this does:** Every 3 days at 2am, Pi-hole downloads fresh copies of all your blocklists. At 3am it checks for and installs any Pi-hole software updates.
 
-Pi-hole releases updates that include bug fixes, security patches, and new features. Schedule an automatic software update so you are always running the latest version without having to do it manually:
-
-```bash
-crontab -e
-```
-
-Add this line:
-
-```
-0 4 * * 0 pihole -up >> /var/log/pihole-update.log 2>&1
-```
-
-This runs every Sunday at 4am. To check the log after the first run:
+**To verify it saved correctly:**
 
 ```bash
-cat /var/log/pihole-update.log
+crontab -l
 ```
 
-To update manually at any time:
+You should see both lines printed back to the screen.
+
+---
+
+### Tip 2 — Keep the Pi-hole Software Up to Date
+
+Pi-hole regularly releases updates with bug fixes and security improvements. In addition to the automatic update scheduled above, you can run an update manually at any time by connecting over SSH and running:
 
 ```bash
 pihole -up
 ```
 
-### Use a Whitelist
+To check whether an update ran successfully, view the log:
 
-Aggressive blocklists occasionally block legitimate domains. Keep a whitelist handy and add domains to it when something on your network stops working unexpectedly. The anudeepND whitelist included in this collection is a good starting point.
+```bash
+cat /var/log/pihole-update.log
+```
 
-### Review Your Query Log
+---
 
-The Pi-hole admin panel at `http://<your-pihole-ip>/admin` shows a live query log. Reviewing it occasionally helps you spot blocked domains that shouldn't be blocked, as well as unexpected traffic from devices on your network.
+### Tip 3 — Use a Whitelist
 
-### Don't Overload Gravity
+Occasionally a blocklist will accidentally block a website you actually want to use. This is called a false positive. When something on your network suddenly stops working, Pi-hole is often the cause.
 
-More lists is not always better. Too many overlapping lists slow down gravity updates and increase memory usage without meaningfully improving coverage. The 57 lists in this collection have been curated to balance broad coverage with minimal redundancy.
+**How to fix a blocked site:**
 
-### Keep Pi-hole on a Static IP
+1. Log into the Pi-hole admin panel in your browser at `http://<your-pihole-ip>/admin`
+2. Click **Query Log** in the left menu
+3. Look for the domain that is being blocked (it will show in red)
+4. Click the domain and select **Whitelist** to allow it
 
-Assign a static IP to your Pi-hole host either via your router's DHCP reservation settings or directly on the Pi-hole host itself. If the IP changes, all devices on your network will lose DNS resolution until it is updated.
+The anudeepND whitelist included in this collection pre-approves many commonly blocked legitimate domains so you should encounter fewer false positives out of the box.
 
-### Run a Backup Pi-hole
+---
 
-If Pi-hole goes down, nothing on your network can resolve DNS. Consider running a second Pi-hole instance as a fallback. Point your router's secondary DNS at the backup so devices fail over automatically.
+### Tip 4 — Review Your Query Log Occasionally
 
-### Health Check and Alerting
+The Pi-hole admin panel shows a live log of every DNS request made by every device on your network. This is useful for two things: spotting false positives as described above, and noticing unusual traffic from devices that should not be making network requests (smart TVs, IoT devices, etc.).
 
-Set up a simple health check that alerts you if Pi-hole stops responding. Pi-hole exposes a local API endpoint you can poll:
+To access it:
+1. Open your browser and go to `http://<your-pihole-ip>/admin`
+2. Click **Query Log** in the left menu
+
+---
+
+### Tip 5 — Do Not Add Too Many Blocklists
+
+It might seem like more blocklists equals more protection, but there is a point of diminishing returns. Too many overlapping lists can slow down Pi-hole's gravity update process and use more memory on your device without meaningfully improving coverage.
+
+The 57 lists in this collection have been carefully selected to give broad coverage across ads, tracking, malware, and other threats while avoiding excessive overlap. Stick with what is here unless you have a specific need for something additional.
+
+---
+
+### Tip 6 — Give Pi-hole a Static IP Address
+
+Pi-hole needs to always be reachable at the same IP address on your network. If your router assigns it a different IP address after a reboot, all devices on your network will lose internet access until the DNS settings are updated.
+
+**The easiest fix** is to log into your router's admin panel and set up a DHCP reservation for your Pi-hole. This tells your router to always give Pi-hole the same IP address. The exact steps vary by router brand — search for "DHCP reservation" plus your router model if you are unsure how to do this.
+
+---
+
+### Tip 7 — Run a Second Pi-hole as a Backup
+
+Pi-hole handles DNS for your entire network. If it goes offline for any reason — a crash, a reboot, a failed update — every device on your network will lose internet access until it comes back up.
+
+The solution is to run a second Pi-hole on a separate device and configure your router to use it as a backup DNS server. Most routers have a Primary DNS and Secondary DNS field. Set Primary to your main Pi-hole and Secondary to your backup. If the primary goes down, devices automatically fail over to the backup.
+
+---
+
+### Tip 8 — Set Up a Health Check Alert
+
+You can set up an automated check that notifies you if Pi-hole stops responding. Pi-hole has a built-in status endpoint you can use to check if it is healthy:
 
 ```
 http://<pihole-ip>/admin/api.php?summary
 ```
 
-If you are running n8n, this is a natural fit. Create a scheduled n8n workflow that hits the API endpoint on an interval and sends you a notification via email, Slack, or SMS if it fails to respond. This gives you network-wide visibility into Pi-hole uptime without any manual checking.
+Open that URL in your browser while Pi-hole is running. If it is healthy, you will see a page full of statistics in text format. If you get an error or a blank page, something is wrong.
 
-To test the endpoint manually:
-
-```bash
-curl http://<pihole-ip>/admin/api.php?summary
-```
-
-A healthy Pi-hole will return a JSON response with statistics. No response or an error means something is wrong.
+For automatic alerting, tools like **UptimeRobot** (free, no technical setup required) can monitor that URL every few minutes and send you an email or phone notification if it goes down. Simply create a free account at https://uptimerobot.com, add a new monitor pointing to the URL above, and enter your notification email. No coding required.
 
 ---
 
 ## Credits
 
-All blocklists are maintained by their respective authors and communities. This repo is a curated index of sources found to be effective. Full credit goes to the original maintainers of each list.
+All blocklists are maintained by their respective authors and communities. This repository is a curated index of sources found to be effective. Full credit goes to the original maintainers of each list.
