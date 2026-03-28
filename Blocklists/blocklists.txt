@@ -15,12 +15,14 @@ https://v.firebog.net/hosts/Easylist.txt
 https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext
 https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UnCheckyAds/hosts
 https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts
+https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
 
 # Tracking / Telemetry
 https://v.firebog.net/hosts/Easyprivacy.txt
 https://v.firebog.net/hosts/Prigent-Ads.txt
 https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts
 https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt
+https://raw.githubusercontent.com/nextdns/cname-cloaking-blocklist/master/domains
 https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.amazon.txt
 https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.apple.txt
 https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.winoffice.txt
@@ -46,6 +48,7 @@ https://raw.githubusercontent.com/jarelllama/Scam-Blocklist/main/lists/wildcard_
 https://v.firebog.net/hosts/RPiList-Phishing.txt
 
 # Hagezi DNS Blocklists
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt
 https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/fake.txt
 https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/popupads.txt
 https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.txt
@@ -56,6 +59,12 @@ https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/hoster.txt
 https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/urlshortener.txt
 https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/spam-tlds-adblock.txt
 https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/anti.piracy.txt
+
+# OISD
+https://big.oisd.nl/
+
+# Smart TV / IoT
+https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/SmartTV.txt
 
 # Other
 https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
