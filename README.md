@@ -43,6 +43,32 @@ Add these two lines:
 
 This runs a gravity update and a Pi-hole software update every 3 days. See [Blocklists/README.md](Blocklists/README.md) for full instructions.
 
+### Keep Pi-hole Software Up to Date
+
+Pi-hole releases updates that include bug fixes, security patches, and new features. Schedule an automatic software update so you are always running the latest version without having to do it manually:
+
+```bash
+crontab -e
+```
+
+Add this line:
+
+```
+0 4 * * 0 pihole -up >> /var/log/pihole-update.log 2>&1
+```
+
+This runs every Sunday at 4am. To check the log after the first run:
+
+```bash
+cat /var/log/pihole-update.log
+```
+
+To update manually at any time:
+
+```bash
+pihole -up
+```
+
 ### Use a Whitelist
 
 Aggressive blocklists occasionally block legitimate domains. Keep a whitelist handy and add domains to it when something on your network stops working unexpectedly. The anudeepND whitelist included in this collection is a good starting point.
