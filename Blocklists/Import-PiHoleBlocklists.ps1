@@ -4,17 +4,17 @@ Imports Pi-hole blocklists from a remote or local text file into the Pi-hole gra
 
 .DESCRIPTION
 This script:
-- Downloads blocklists.txt from the GitHub repo (or reads a local copy)
+- Downloads PiHoleBlocklistSources.txt from the GitHub repo (or reads a local copy)
 - Parses each URL, skipping blank lines and comments
 - Inserts each URL into Pi-hole's gravity.db adlist table
 - Skips duplicates automatically via INSERT OR IGNORE
 - Runs pihole -g to update gravity after all inserts
 
 .PARAMETER BlocklistUrl
-URL to the raw blocklists.txt file. Defaults to the GitHub raw URL.
+URL to the raw PiHoleBlocklistSources.txt file. Defaults to the GitHub raw URL.
 
 .PARAMETER LocalFile
-Path to a local blocklists.txt file. If supplied, skips the download.
+Path to a local PiHoleBlocklistSources.txt file. If supplied, skips the download.
 
 .PARAMETER GravityDb
 Path to the Pi-hole gravity database. Defaults to /etc/pihole/gravity.db.
@@ -26,7 +26,7 @@ If supplied, skips running pihole -g after inserting. Useful for testing.
 sudo pwsh ./Import-PiHoleBlocklists.ps1
 
 .EXAMPLE
-sudo pwsh ./Import-PiHoleBlocklists.ps1 -LocalFile ./blocklists.txt
+sudo pwsh ./Import-PiHoleBlocklists.ps1 -LocalFile ./PiHoleBlocklistSources.txt
 
 .EXAMPLE
 sudo pwsh ./Import-PiHoleBlocklists.ps1 -SkipGravityUpdate
@@ -38,7 +38,7 @@ Requires PowerShell 7+ and sqlite3 CLI installed.
 
 [CmdletBinding()]
 param(
-    [string]$BlocklistUrl = "https://raw.githubusercontent.com/mickpletcher/PiHole/main/blocklists.txt",
+    [string]$BlocklistUrl = "https://raw.githubusercontent.com/mickpletcher/PiHole/main/Blocklists/PiHoleBlocklistSources.txt",
     [string]$LocalFile = "",
     [string]$GravityDb = "/etc/pihole/gravity.db",
     [switch]$SkipGravityUpdate
@@ -88,7 +88,7 @@ function Get-BlocklistUrls {
             $lines = $response -split "`n"
         }
         catch {
-            throw "Failed to download blocklists.txt: $_"
+            throw "Failed to download PiHoleBlocklistSources.txt: $_"
         }
     }
 

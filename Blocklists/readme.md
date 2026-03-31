@@ -23,7 +23,8 @@ It is a file at `/etc/pihole/gravity.db` on your Pi-hole device. The import scri
 
 | File | Description |
 |------|-------------|
-| `blocklists.txt` | Plain text file containing all 57 blocklist URLs, one per line |
+| `PiHoleBlocklistSources.txt` | Plain text file containing all 57 blocklist URLs, one per line |
+| `CountryGeoFencing.txt` | List of countries used to configure geo-fencing DNS blocks |
 | `Import-PiHoleBlocklists.ps1` | PowerShell script to bulk import all lists into Pi-hole's gravity database |
 | `import_pihole_blocklists.py` | Python script to bulk import all lists into Pi-hole's gravity database |
 
@@ -31,7 +32,7 @@ It is a file at `/etc/pihole/gravity.db` on your Pi-hole device. The import scri
 
 ## Quick Start
 
-The two import scripts do the same thing — they read this repository's `blocklists.txt` file and add every URL in it to your Pi-hole. Choose whichever language you prefer or have available.
+The two import scripts do the same thing — they read this repository's `PiHoleBlocklistSources.txt` file and add every URL in it to your Pi-hole. Choose whichever language you prefer or have available.
 
 > **Important:** These scripts must be run on the Pi-hole device itself, not on your personal Windows or Mac computer. Connect to your Pi-hole over SSH first (see the Key Concepts section in the main [README](../README.md) if you are not sure how to do this).
 
@@ -83,7 +84,7 @@ sudo python3 import_pihole_blocklists.py
 ```
 
 **What both scripts do:**
-- Download `blocklists.txt` directly from this GitHub repository
+- Download `PiHoleBlocklistSources.txt` directly from this GitHub repository
 - Insert each URL into Pi-hole's gravity database
 - Skip any URLs that are already in the database (safe to run more than once)
 - Run `pihole -g` automatically at the end to update gravity and activate the new lists
@@ -99,8 +100,8 @@ The import itself takes a few seconds. The gravity update at the end can take 1 
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `-BlocklistUrl` | GitHub raw URL | URL to the remote `blocklists.txt` file |
-| `-LocalFile` | _(none)_ | Path to a local `blocklists.txt` — skips download if provided |
+| `-BlocklistUrl` | GitHub raw URL | URL to the remote `PiHoleBlocklistSources.txt` file |
+| `-LocalFile` | _(none)_ | Path to a local `PiHoleBlocklistSources.txt` — skips download if provided |
 | `-GravityDb` | `/etc/pihole/gravity.db` | Path to Pi-hole's gravity database |
 | `-SkipGravityUpdate` | `false` | If set, skips running `pihole -g` after inserting |
 
@@ -111,7 +112,7 @@ The import itself takes a few seconds. The gravity update at the end can take 1 
 sudo pwsh ./Import-PiHoleBlocklists.ps1
 
 # Use a local file
-sudo pwsh ./Import-PiHoleBlocklists.ps1 -LocalFile ./blocklists.txt
+sudo pwsh ./Import-PiHoleBlocklists.ps1 -LocalFile ./PiHoleBlocklistSources.txt
 
 # Import without updating gravity
 sudo pwsh ./Import-PiHoleBlocklists.ps1 -SkipGravityUpdate
@@ -121,8 +122,8 @@ sudo pwsh ./Import-PiHoleBlocklists.ps1 -SkipGravityUpdate
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--blocklist-url` | GitHub raw URL | URL to the remote `blocklists.txt` file |
-| `--local-file` | _(none)_ | Path to a local `blocklists.txt` — skips download if provided |
+| `--blocklist-url` | GitHub raw URL | URL to the remote `PiHoleBlocklistSources.txt` file |
+| `--local-file` | _(none)_ | Path to a local `PiHoleBlocklistSources.txt` — skips download if provided |
 | `--gravity-db` | `/etc/pihole/gravity.db` | Path to Pi-hole's gravity database |
 | `--skip-gravity-update` | `false` | If set, skips running `pihole -g` after inserting |
 
@@ -133,7 +134,7 @@ sudo pwsh ./Import-PiHoleBlocklists.ps1 -SkipGravityUpdate
 sudo python3 import_pihole_blocklists.py
 
 # Use a local file
-sudo python3 import_pihole_blocklists.py --local-file ./blocklists.txt
+sudo python3 import_pihole_blocklists.py --local-file ./PiHoleBlocklistSources.txt
 
 # Import without updating gravity
 sudo python3 import_pihole_blocklists.py --skip-gravity-update
@@ -159,7 +160,7 @@ In the left menu, click **Group Management**, then click **Adlists**.
 
 **Step 3 — Add a list**
 
-Open `blocklists.txt` from this repository. Copy one URL, paste it into the **Address** field in the admin panel, optionally add a comment to remind yourself what the list is for, and click **Add**. Repeat for each URL you want to add.
+Open `PiHoleBlocklistSources.txt` from this repository. Copy one URL, paste it into the **Address** field in the admin panel, optionally add a comment to remind yourself what the list is for, and click **Add**. Repeat for each URL you want to add.
 
 **Step 4 — Update Gravity**
 

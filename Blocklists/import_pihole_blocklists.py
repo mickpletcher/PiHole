@@ -7,7 +7,7 @@ Pi-hole gravity database.
 
 What it does
 ------------
-- Downloads blocklists.txt from the GitHub repo (or reads a local copy)
+- Downloads PiHoleBlocklistSources.txt from the GitHub repo (or reads a local copy)
 - Parses each URL, skipping blank lines and comments
 - Inserts each URL into Pi-hole's gravity.db adlist table
 - Skips duplicates automatically via INSERT OR IGNORE
@@ -23,12 +23,12 @@ Examples
 --------
 sudo python3 import_pihole_blocklists.py
 
-sudo python3 import_pihole_blocklists.py --local-file ./blocklists.txt
+sudo python3 import_pihole_blocklists.py --local-file ./PiHoleBlocklistSources.txt
 
 sudo python3 import_pihole_blocklists.py --skip-gravity-update
 
 sudo python3 import_pihole_blocklists.py \
-    --blocklist-url https://raw.githubusercontent.com/mickpletcher/PiHole/main/blocklists.txt \
+    --blocklist-url https://raw.githubusercontent.com/mickpletcher/PiHole/main/Blocklists/PiHoleBlocklistSources.txt \
     --gravity-db /etc/pihole/gravity.db
 
 Author
@@ -50,7 +50,7 @@ from typing import List, Optional
 import requests
 
 
-DEFAULT_BLOCKLIST_URL = "https://raw.githubusercontent.com/mickpletcher/PiHole/main/blocklists.txt"
+DEFAULT_BLOCKLIST_URL = "https://raw.githubusercontent.com/mickpletcher/PiHole/main/Blocklists/PiHoleBlocklistSources.txt"
 DEFAULT_GRAVITY_DB    = "/etc/pihole/gravity.db"
 
 
@@ -89,7 +89,7 @@ def load_blocklist_urls(blocklist_url: str, local_file: Optional[str]) -> List[s
             response.raise_for_status()
             lines = response.text.splitlines()
         except requests.RequestException as exc:
-            raise RuntimeError(f"Failed to download blocklists.txt: {exc}") from exc
+            raise RuntimeError(f"Failed to download PiHoleBlocklistSources.txt: {exc}") from exc
 
     urls: List[str] = []
     for line in lines:
@@ -187,12 +187,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--blocklist-url",
         default=DEFAULT_BLOCKLIST_URL,
-        help="URL to the raw blocklists.txt file. Defaults to the GitHub raw URL."
+        help="URL to the raw PiHoleBlocklistSources.txt file. Defaults to the GitHub raw URL."
     )
     parser.add_argument(
         "--local-file",
         default=None,
-        help="Path to a local blocklists.txt file. If supplied, skips the download."
+        help="Path to a local PiHoleBlocklistSources.txt file. If supplied, skips the download."
     )
     parser.add_argument(
         "--gravity-db",

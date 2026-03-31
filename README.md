@@ -52,7 +52,8 @@ Python is a programming language. Scripts with a `.py` extension are Python scri
 |---------------|-----------------|
 | `Blocklists/` | A collection of 57 blocklist sources, import scripts, and detailed setup instructions |
 | `Blocklists/README.md` | Step-by-step instructions for adding the blocklists to your Pi-hole |
-| `Blocklists/blocklists.txt` | A plain text file with all 57 blocklist URLs, one per line |
+| `Blocklists/PiHoleBlocklistSources.txt` | A plain text file with all 57 blocklist URLs, one per line |
+| `Blocklists/CountryGeoFencing.txt` | A list of countries used to configure geo-fencing DNS blocks |
 | `Blocklists/Import-PiHoleBlocklists.ps1` | A PowerShell script that automatically adds all blocklists to Pi-hole |
 | `Blocklists/import_pihole_blocklists.py` | A Python script that does the same thing as above |
 | `Get-PiHoleConfig.ps1` | A PowerShell script that pulls Pi-hole v6 configuration and summary data to a sanitized JSON file for review or troubleshooting |
