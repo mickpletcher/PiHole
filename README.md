@@ -227,13 +227,15 @@ The solution is to run a second Pi-hole on a separate device and configure your 
 
 Because Pi-hole handles DNS for your entire network, if it goes down every device loses internet access. You want to know immediately when that happens.
 
-Pi-hole has a built-in status page you can use to check if it is running. Open this URL in your browser while Pi-hole is running:
+Pi-hole v6 has a built-in API endpoint you can use to check if it is running. Open this URL in your browser while Pi-hole is running:
 
 ```
-http://<your-pihole-ip>/admin/api.php?summary
+http://<your-pihole-ip>/api/stats/summary
 ```
 
-If Pi-hole is healthy, you will see a page full of statistics. If you get an error or a blank page, Pi-hole is not responding.
+Replace `<your-pihole-ip>` with your Pi-hole's actual IP address. If Pi-hole is healthy, you will see a page of JSON statistics. If you get an error or a blank page, Pi-hole is not responding.
+
+> **Note:** The older URL `/admin/api.php?summary` was used in Pi-hole v5 and no longer works in Pi-hole v6.
 
 **How to get automatic alerts for free:**
 

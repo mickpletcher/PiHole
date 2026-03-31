@@ -299,4 +299,31 @@ This list is reviewed and updated regularly as new sources are identified or exi
 
 ## Credits
 
+All blocklists in this collection are maintained by their respective authors and communities. This repository is a curated index of sources found to be effective and well-maintained. Full credit goes to the original maintainers of each list.
+
+Notable projects included in this collection:
+
+- [anudeepND](https://github.com/anudeepND) — Ad server and whitelist collections
+- [Hagezi](https://github.com/hagezi/dns-blocklists) — Comprehensive multi-purpose DNS blocklists
+- [OISD](https://oisd.nl) — All-in-one blocklist
+- [StevenBlack](https://github.com/StevenBlack/hosts) — Unified hosts file
+- [Phishing Army](https://phishing.army) — Phishing domain blocklist
+- [URLhaus / abuse.ch](https://urlhaus.abuse.ch) — Malware URL tracking
+- [DandelionSprout](https://github.com/DandelionSprout) — Anti-malware list
+- [Firebog](https://firebog.net) — Curated Pi-hole blocklist index
+- [AssoEchap](https://github.com/AssoEchap/stalkerware-indicators) — Stalkerware indicators
+- [NextDNS](https://github.com/nextdns/cname-cloaking-blocklist) — CNAME cloaking blocklist
+- [crazy-max / WindowsSpyBlocker](https://github.com/crazy-max/WindowsSpyBlocker) — Windows telemetry blocklist
+- [Spam404](https://github.com/Spam404/lists) — Scam and fraud domain list
+- [JarellIama](https://github.com/jarelllama/Scam-Blocklist) — Scam domain blocklist
+- [Perflyst](https://github.com/Perflyst/PiHoleBlocklist) — Smart TV blocklist
+- [bigdargon](https://github.com/bigdargon/hostsVN) — Vietnamese ad hosts
+- [RooneyMcNibNug](https://github.com/RooneyMcNibNug/pihole-stuff) — SNAFU blocklist
+- [PolishFiltersTeam](https://github.com/PolishFiltersTeam/KADhosts) — KADhosts
+- [FadeMind](https://github.com/FadeMind/hosts.extras) — Hosts extras collection
+- [Matomo](https://github.com/matomo-org/referrer-spam-blacklist) — Referrer spam blacklist
+- [Disconnect.me](https://disconnect.me) — Simple ad and tracking lists
+- [CyberHost](https://lists.cyberhost.uk) — Malware list
+- [malware-filter](https://gitlab.com/malware-filter) — Phishing filter hosts
+
 All blocklists are maintained by their respective authors and communities. This repo is a curated index of sources found to be effective. Full credit goes to the original maintainers of each list.
