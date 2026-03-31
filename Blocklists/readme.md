@@ -25,6 +25,9 @@ It is a file at `/etc/pihole/gravity.db` on your Pi-hole device. The import scri
 |------|-------------|
 | `PiHoleBlocklistSources.txt` | Plain text file containing all 57 blocklist URLs, one per line |
 | `CountryGeoFencing.txt` | List of countries used to configure geo-fencing DNS blocks |
+| `Build-CuratedBlocklist.ps1` | PowerShell script that downloads all source lists, extracts domains, sorts, and de-duplicates output |
+| `CuratedBlocklist.txt` | Generated output file produced by Build-CuratedBlocklist.ps1 |
+| `FailedSources.txt` | Generated run log file produced by Build-CuratedBlocklist.ps1 listing failed source URLs (can be blank) |
 | `Import-PiHoleBlocklists.ps1` | PowerShell script to bulk import all lists into Pi-hole's gravity database |
 | `import_pihole_blocklists.py` | Python script to bulk import all lists into Pi-hole's gravity database |
 
@@ -91,6 +94,37 @@ sudo python3 import_pihole_blocklists.py
 
 **How long does it take?**
 The import itself takes a few seconds. The gravity update at the end can take 1 to 10 minutes depending on your Pi-hole hardware and internet speed. You will see progress messages as it runs.
+
+---
+
+## Build a Curated Domain List
+
+Use `Build-CuratedBlocklist.ps1` when you want one de-duplicated domain file generated from all URLs listed in `PiHoleBlocklistSources.txt`.
+
+What it does:
+- Reads source URLs from GitHub or a local source file
+- Downloads each source list with retry logic
+- Extracts domains from common hosts and adblock style formats
+- Sorts and de-duplicates domains
+- Writes output to `CuratedBlocklist.txt` using atomic replace
+- Always writes `FailedSources.txt` for the run (blank when there are no failures)
+- Optionally stages, commits, and pushes both output files to GitHub (`CuratedBlocklist.txt` and `FailedSources.txt`)
+
+Examples:
+
+```powershell
+# Build curated output only
+.\Build-CuratedBlocklist.ps1
+
+# Strict mode plus failed source log
+.\Build-CuratedBlocklist.ps1 -FailOnSourceError -FailedSourcesLogFile .\FailedSources.txt
+
+# Build and push to GitHub
+.\Build-CuratedBlocklist.ps1 -PushToGitHub
+
+# Preview write and push actions without changing anything
+.\Build-CuratedBlocklist.ps1 -PushToGitHub -WhatIf
+```
 
 ---
 
@@ -326,5 +360,3 @@ Notable projects included in this collection:
 - [Disconnect.me](https://disconnect.me) — Simple ad and tracking lists
 - [CyberHost](https://lists.cyberhost.uk) — Malware list
 - [malware-filter](https://gitlab.com/malware-filter) — Phishing filter hosts
-
-All blocklists are maintained by their respective authors and communities. This repo is a curated index of sources found to be effective. Full credit goes to the original maintainers of each list.
