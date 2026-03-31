@@ -1,8 +1,48 @@
 # Pi-hole Configuration & Blocklists
 
-This repository contains a curated collection of blocklists and tools to help you get the most out of Pi-hole — a free, open-source tool that blocks ads, trackers, and malicious websites across your entire home network at the DNS level. That means every device on your network — phones, tablets, smart TVs, laptops — gets protected automatically without installing anything on each device.
+This repository contains a curated collection of blocklists and tools to help you get the most out of Pi-hole. Pi-hole is a free, open-source program that blocks ads, trackers, and malicious websites for every device on your home network at once. You install it once and every phone, tablet, smart TV, laptop, and IoT device on your network gets protected automatically — no apps to install on each device.
 
-If you are new to Pi-hole, think of it as a filter that sits between your devices and the internet. When a device tries to connect to a known ad or tracking domain, Pi-hole intercepts that request and blocks it before it ever reaches your device.
+Think of Pi-hole as a gatekeeper. Before any device on your network loads a website, it has to ask Pi-hole what that website's address is. If Pi-hole recognizes the address as an ad server or tracking domain, it says "that doesn't exist" and the request is dropped. The ad never loads.
+
+---
+
+## Key Concepts for Beginners
+
+If terms like "DNS" or "SSH" are new to you, read this section first.
+
+**What is DNS?**
+When you type a website name like `google.com` into your browser, your computer needs to convert that name into a numerical address the internet can understand, called an IP address. A DNS server does that translation. Pi-hole acts as your DNS server, intercepting requests for known bad domains before they ever leave your network.
+
+**What is an IP address?**
+An IP address is a unique number that identifies a device on a network, like `192.168.1.100`. Every device on your home network has one. You will need the IP address of your Pi-hole to connect to it and to configure your router.
+
+**How do I find my Pi-hole's IP address?**
+Log into your router's admin page (usually found at `http://192.168.1.1` or `http://192.168.0.1` in a browser) and look for a section called "Connected Devices" or "DHCP Clients". Find the device named `pihole` or whatever you named it and note the IP address shown.
+
+**What is SSH?**
+SSH (Secure Shell) is a way to remotely control another computer using a text-based terminal. When instructions tell you to "connect over SSH", it means you open a terminal on your computer and type a command that gives you a command line on the Pi-hole device, as if you were sitting in front of it.
+
+**How do I open a terminal on Windows?**
+Press the Windows key, type `PowerShell`, and click **Windows PowerShell** or **Terminal**. A black or blue window will open. This is where you type commands.
+
+**How do I open a terminal on Mac or Linux?**
+Press `Cmd + Space`, type `Terminal`, and press Enter.
+
+**How do I connect to my Pi-hole over SSH?**
+Open a terminal on your computer and type:
+```bash
+ssh pi@<your-pihole-ip>
+```
+Replace `<your-pihole-ip>` with the actual IP address you found earlier, for example `ssh pi@192.168.1.100`. Press Enter, type your Pi-hole password when prompted, and press Enter again. You are now controlling your Pi-hole remotely.
+
+**What is PowerShell?**
+PowerShell is a scripting and automation tool built into Windows. Scripts with a `.ps1` file extension are PowerShell scripts. To run one, open a PowerShell terminal, navigate to the folder containing the script, and type its name preceded by `.\ `.
+
+**What is Python?**
+Python is a programming language. Scripts with a `.py` extension are Python scripts. Python is not installed on Windows by default. If you prefer the Python scripts in this repo, download Python from https://python.org first.
+
+**What does "sudo" mean?**
+`sudo` is a Linux/Mac command that runs the following command with administrator-level permissions. Pi-hole's database and configuration files are protected so only administrators can modify them. Whenever instructions include `sudo`, it is required for the command to work.
 
 ---
 
@@ -15,6 +55,7 @@ If you are new to Pi-hole, think of it as a filter that sits between your device
 | `Blocklists/blocklists.txt` | A plain text file with all 57 blocklist URLs, one per line |
 | `Blocklists/Import-PiHoleBlocklists.ps1` | A PowerShell script that automatically adds all blocklists to Pi-hole |
 | `Blocklists/import_pihole_blocklists.py` | A Python script that does the same thing as above |
+| `Get-PiHoleConfig.ps1` | A PowerShell script that pulls Pi-hole v6 configuration and summary data to a sanitized JSON file for review or troubleshooting |
 
 ---
 
@@ -22,13 +63,34 @@ If you are new to Pi-hole, think of it as a filter that sits between your device
 
 **Step 1 — Install Pi-hole**
 
-If you have not installed Pi-hole yet, follow the official installation guide at https://docs.pi-hole.net. Pi-hole runs on a Raspberry Pi or any Linux machine on your network.
+If you do not have Pi-hole installed yet, go to https://docs.pi-hole.net and follow the official installation guide. Pi-hole runs on a Raspberry Pi, a Linux virtual machine, a Linux container (like Proxmox LXC), or any other device running Linux on your home network.
 
-**Step 2 — Add the Blocklists**
+The installation is a single command you paste into a terminal on the device you want to run Pi-hole on:
 
-Once Pi-hole is installed, follow the instructions in [Blocklists/README.md](Blocklists/README.md) to add the blocklist collection to your Pi-hole. This is where the actual blocking power comes from.
+```bash
+curl -sSL https://install.pi-hole.net | bash
+```
 
-**Step 3 — Set Up Automation**
+The installer will walk you through a series of prompts. Accept the defaults unless you know you need something different. When it is done, you will be shown an admin password. Write it down.
+
+Once Pi-hole is installed, you can reach the admin panel from any browser on your network by going to:
+```
+http://<your-pihole-ip>/admin
+```
+
+**Step 2 — Point Your Router at Pi-hole**
+
+For Pi-hole to filter traffic for your whole network, your router needs to send DNS requests through Pi-hole instead of directly to the internet.
+
+Log into your router's admin panel (usually at `http://192.168.1.1` or `http://192.168.0.1`). Find the DNS settings, which are often located under **DHCP Settings**, **LAN Setup**, or **Internet Settings** depending on your router brand. Set the primary DNS server to your Pi-hole's IP address. Leave the secondary DNS blank or set it to a public DNS like `1.1.1.1` only as a fallback.
+
+If you are not sure where to find this setting, search online for "set DNS server" plus your router model name.
+
+**Step 3 — Add the Blocklists**
+
+Out of the box Pi-hole uses a basic default blocklist. The real blocking power comes from adding curated lists that cover ads, tracking, malware, phishing, and more. Follow the instructions in [Blocklists/README.md](Blocklists/README.md) to add the full collection to your Pi-hole.
+
+**Step 4 — Set Up Automation**
 
 Follow the tips below to keep your Pi-hole running smoothly with minimal ongoing maintenance.
 
@@ -40,46 +102,45 @@ Follow the tips below to keep your Pi-hole running smoothly with minimal ongoing
 
 ### Tip 1 — Keep Your Blocklists Fresh Automatically
 
-Pi-hole's blocklists do not update themselves by default. New ad, tracking, and malicious domains are added to the internet every day, so if your lists never update, your protection gradually becomes less effective over time.
+Pi-hole's blocklists do not update themselves by default. New ad, tracking, and malicious domains are registered on the internet every day. If your lists never update, your protection gradually becomes less effective.
 
-The fix is to schedule an automatic update using a tool called **cron** — a built-in Linux feature that runs commands on a timer, like a built-in task scheduler.
+The fix is to schedule an automatic update using **cron**, which is a built-in Linux feature that runs commands on a repeating schedule, like a built-in task scheduler.
 
-**How to set it up:**
+**How to set it up — step by step:**
 
-First, connect to your Pi-hole over SSH. If you are on Windows, open PowerShell and type:
+1. Open a terminal on your computer (see Key Concepts above if you are not sure how).
 
-```bash
-ssh pi@<your-pihole-ip>
-```
+2. Connect to your Pi-hole over SSH:
+   ```bash
+   ssh pi@<your-pihole-ip>
+   ```
+   Replace `<your-pihole-ip>` with your Pi-hole's actual IP address. Enter your password when prompted.
 
-Replace `<your-pihole-ip>` with the actual IP address of your Pi-hole (for example `192.168.1.100`). You can find this in your router's admin panel under connected devices.
+3. Once connected, open the cron job editor:
+   ```bash
+   crontab -e
+   ```
+   If it asks you to choose a text editor, type `1` and press Enter to use nano, which is the simplest option.
 
-Once connected, open the cron scheduler:
+4. A text file will open. Use the arrow keys to scroll to the very bottom. Add these two lines:
+   ```
+   0 2 */3 * * pihole -g >> /var/log/pihole-gravity.log 2>&1
+   0 3 */3 * * pihole -up >> /var/log/pihole-update.log 2>&1
+   ```
 
-```bash
-crontab -e
-```
+5. Save and close the file: press `Ctrl+X`, then press `Y` to confirm, then press `Enter`.
 
-If it asks you to choose an editor, type `1` and press Enter to select nano (the simplest option).
+6. Confirm your schedule was saved:
+   ```bash
+   crontab -l
+   ```
+   Both lines should appear in the output.
 
-Paste these two lines at the very bottom of the file:
+**What those lines do:**
+- Line 1: Every 3 days at 2:00 AM, Pi-hole downloads fresh copies of all your blocklists. This process is called updating gravity.
+- Line 2: Every 3 days at 3:00 AM, Pi-hole checks for and installs any software updates.
 
-```
-0 2 */3 * * pihole -g >> /var/log/pihole-gravity.log 2>&1
-0 3 */3 * * pihole -up >> /var/log/pihole-update.log 2>&1
-```
-
-Save and exit by pressing `Ctrl+X`, then `Y`, then `Enter`.
-
-**What this does:** Every 3 days at 2am, Pi-hole downloads fresh copies of all your blocklists. At 3am it checks for and installs any Pi-hole software updates.
-
-**To verify it saved correctly:**
-
-```bash
-crontab -l
-```
-
-You should see both lines printed back to the screen.
+The times are staggered by an hour so both tasks do not run at the same time.
 
 ---
 
@@ -99,18 +160,24 @@ cat /var/log/pihole-update.log
 
 ---
 
-### Tip 3 — Use a Whitelist
+### Tip 3 — Fix Blocked Sites You Actually Need
 
-Occasionally a blocklist will accidentally block a website you actually want to use. This is called a false positive. When something on your network suddenly stops working, Pi-hole is often the cause.
+Occasionally a blocklist will accidentally block a website you actually want to visit. This is called a false positive. If a website suddenly stops loading or an app stops working, Pi-hole blocking it is one of the first things to check.
 
-**How to fix a blocked site:**
+**How to tell if Pi-hole is blocking something:**
 
-1. Log into the Pi-hole admin panel in your browser at `http://<your-pihole-ip>/admin`
-2. Click **Query Log** in the left menu
-3. Look for the domain that is being blocked (it will show in red)
-4. Click the domain and select **Whitelist** to allow it
+Try opening the same website or app on a device that is not using Pi-hole as its DNS, such as a phone with Wi-Fi turned off. If it works on that device but not on your normal network, Pi-hole is likely the cause.
 
-The anudeepND whitelist included in this collection pre-approves many commonly blocked legitimate domains so you should encounter fewer false positives out of the box.
+**How to allow a blocked site:**
+
+1. Open your browser and go to `http://<your-pihole-ip>/admin`
+2. Log in with your Pi-hole password
+3. Click **Query Log** in the left-side menu
+4. Look for the domain that is being blocked — blocked entries are shown in red or with a blocked status
+5. Click on the domain name
+6. Select **Allow** or **Whitelist** to permanently allow it
+
+The blocklist collection in this repository also includes an allowlist from anudeepND that pre-approves many commonly blocked legitimate domains, so you should run into fewer false positives to begin with.
 
 ---
 
@@ -134,9 +201,17 @@ The 57 lists in this collection have been carefully selected to give broad cover
 
 ### Tip 6 — Give Pi-hole a Static IP Address
 
-Pi-hole needs to always be reachable at the same IP address on your network. If your router assigns it a different IP address after a reboot, all devices on your network will lose internet access until the DNS settings are updated.
+Pi-hole works as your DNS server, which means every device on your network sends requests to it by its IP address. If your router ever assigns Pi-hole a different IP address — after a reboot, for example — those requests will fail and every device on your network will lose internet access until the address is corrected.
 
-**The easiest fix** is to log into your router's admin panel and set up a DHCP reservation for your Pi-hole. This tells your router to always give Pi-hole the same IP address. The exact steps vary by router brand — search for "DHCP reservation" plus your router model if you are unsure how to do this.
+The fix is to make sure Pi-hole always gets the same IP address. There are two ways to do this.
+
+**Option A — Set a DHCP reservation on your router (recommended for beginners):**
+
+Log into your router's admin panel and look for a section called **DHCP Reservations**, **Static DHCP**, or **Address Reservation**. Find your Pi-hole in the list of connected devices and reserve its current IP address so the router always issues the same one. The exact menu name varies by router brand. Search for "DHCP reservation" plus your router model name if you cannot find it.
+
+**Option B — Set a static IP on the Pi-hole device itself:**
+
+Connect to your Pi-hole over SSH and edit its network configuration directly. This is more advanced and the exact steps depend on whether your Pi-hole runs on Raspberry Pi OS, Ubuntu, or another Linux distribution. Search for "set static IP" plus your Linux distribution name for step-by-step instructions.
 
 ---
 
@@ -150,15 +225,117 @@ The solution is to run a second Pi-hole on a separate device and configure your 
 
 ### Tip 8 — Set Up a Health Check Alert
 
-You can set up an automated check that notifies you if Pi-hole stops responding. Pi-hole has a built-in status endpoint you can use to check if it is healthy:
+Because Pi-hole handles DNS for your entire network, if it goes down every device loses internet access. You want to know immediately when that happens.
+
+Pi-hole has a built-in status page you can use to check if it is running. Open this URL in your browser while Pi-hole is running:
 
 ```
-http://<pihole-ip>/admin/api.php?summary
+http://<your-pihole-ip>/admin/api.php?summary
 ```
 
-Open that URL in your browser while Pi-hole is running. If it is healthy, you will see a page full of statistics in text format. If you get an error or a blank page, something is wrong.
+If Pi-hole is healthy, you will see a page full of statistics. If you get an error or a blank page, Pi-hole is not responding.
 
-For automatic alerting, tools like **UptimeRobot** (free, no technical setup required) can monitor that URL every few minutes and send you an email or phone notification if it goes down. Simply create a free account at https://uptimerobot.com, add a new monitor pointing to the URL above, and enter your notification email. No coding required.
+**How to get automatic alerts for free:**
+
+1. Go to https://uptimerobot.com and create a free account.
+2. Click **Add New Monitor**.
+3. Set the monitor type to **HTTP(s)**.
+4. Enter the URL above with your Pi-hole's actual IP address.
+5. Enter your email address for notifications.
+6. Click **Create Monitor**.
+
+UptimeRobot will check the URL every 5 minutes and send you an email if Pi-hole stops responding. No coding or technical knowledge is required.
+
+---
+
+## Get-PiHoleConfig.ps1
+
+This script connects to your Pi-hole v6 API, pulls a snapshot of its configuration and statistics, and saves everything to a JSON file on your computer. Before saving, the script automatically redacts sensitive information such as passwords, IP addresses, hostnames, and device identifiers so the file is safe to share with someone helping you troubleshoot.
+
+**What you need before running this script:**
+- A Windows computer (PowerShell 5.1 or later is included in Windows 10 and 11 by default)
+- Pi-hole v6 installed and running on your network
+- Your Pi-hole's IP address (see Key Concepts section above)
+- Your Pi-hole API password
+
+**Step 1 — Find your Pi-hole API password**
+
+The API password is set during Pi-hole installation. If you do not remember it, you can reset it by connecting to your Pi-hole over SSH and running:
+
+```bash
+pihole setpassword
+```
+
+Type a new password when prompted. That new password is also your API password.
+
+Alternatively, to look up the current password hash (not recoverable as plain text), connect over SSH and run:
+
+```bash
+cat /etc/pihole/pihole.toml | grep -A5 "[webserver.api]"
+```
+
+**Step 2 — Download the script**
+
+The script is in this repository. Click the green **Code** button at the top of the GitHub page and select **Download ZIP**. Unzip it to a folder on your computer, for example `C:\PiHole`.
+
+**Step 3 — Open PowerShell in the script folder**
+
+Open File Explorer and navigate to the folder where you unzipped the files. Hold **Shift** and right-click in an empty area of the folder. Select **Open PowerShell window here** or **Open in Terminal**.
+
+**Step 4 — Allow the script to run**
+
+Windows may block scripts from running by default. Run this command once to allow local scripts:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Type `Y` and press Enter when prompted.
+
+**Step 5 — Run the script**
+
+```powershell
+.\Get-PiHoleConfig.ps1 -PiHoleIP 192.168.1.100 -ApiPassword 'your_api_password'
+```
+
+Replace `192.168.1.100` with your Pi-hole's actual IP address and `your_api_password` with your actual password. The script will connect, pull the data, and save a file called `pihole-config.json` to your desktop.
+
+**Parameters:**
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `-PiHoleIP` | Yes | | IP address of your Pi-hole instance |
+| `-ApiPassword` | Yes | | Pi-hole API password |
+| `-OutputPath` | No | Your desktop (or current folder if desktop is not found) | Full path where the output JSON file should be saved |
+
+**Optional: save the file somewhere specific**
+
+```powershell
+.\Get-PiHoleConfig.ps1 -PiHoleIP 192.168.1.100 -ApiPassword 'your_api_password' -OutputPath 'C:\Temp\pihole-config.json'
+```
+
+**What gets collected:**
+
+| Data | Description |
+|------|-------------|
+| Full configuration | All Pi-hole settings |
+| Stats summary | Query counts and blocking statistics |
+| Groups | Client groups you have defined |
+| Lists | All block and allow lists configured |
+| Clients | Registered client devices |
+| Domains | Custom allow/block domain entries |
+| Blocking status | Whether blocking is currently active |
+
+**What gets redacted:**
+
+Before saving, the script replaces the following with `[REDACTED]`:
+- Passwords, tokens, and secrets
+- IP addresses and MAC addresses
+- Hostnames and domain names
+- URLs
+- Any field whose name suggests it contains sensitive data
+
+The resulting file is safe to attach to a support request, post in a forum, or share with someone helping you diagnose a Pi-hole issue. Still review the file before sharing to confirm it meets your own comfort level.
 
 ---
 

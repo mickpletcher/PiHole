@@ -1,8 +1,21 @@
 # Pi-hole Blocklist Collection
 
-A curated collection of 57 blocklist sources used to populate Pi-hole's block list. Covers advertising, tracking/telemetry, malicious domains, phishing, scams, fake news, stalkerware, piracy, CNAME cloaking, smart TV tracking, and more. All lists are sourced from well-maintained community and security projects and are regularly reviewed and updated.
+A curated collection of 57 blocklist sources for Pi-hole. Covers advertising, tracking, telemetry, malicious domains, phishing, scams, fake news, stalkerware, piracy, CNAME cloaking, smart TV tracking, and more. All lists are sourced from well-maintained community and security projects.
 
 > **Disclaimer:** This is a personal curated index of community blocklist sources. No blocklist is perfect. Review before deploying on production networks.
+
+---
+
+## Before You Begin
+
+**What is a blocklist?**
+A blocklist is a plain text file containing a list of domain names that should be blocked. Pi-hole downloads these files, reads every domain name in them, and adds those domains to its block database. When a device on your network tries to look up one of those domains, Pi-hole intercepts it and returns nothing, so the ad, tracker, or malicious content never loads.
+
+**What is gravity?**
+Gravity is Pi-hole's term for the process of downloading all your configured blocklists and compiling them into a single database it can query quickly. When you run `pihole -g` or click **Update Gravity** in the admin panel, Pi-hole is fetching fresh copies of every list and rebuilding that database. You need to update gravity after adding new lists for them to take effect.
+
+**What is the gravity database?**
+It is a file at `/etc/pihole/gravity.db` on your Pi-hole device. The import scripts in this folder write blocklist URLs directly into that database file. That is why they need to be run on the Pi-hole device itself, not on your personal computer.
 
 ---
 
@@ -18,28 +31,65 @@ A curated collection of 57 blocklist sources used to populate Pi-hole's block li
 
 ## Quick Start
 
+The two import scripts do the same thing — they read this repository's `blocklists.txt` file and add every URL in it to your Pi-hole. Choose whichever language you prefer or have available.
+
+> **Important:** These scripts must be run on the Pi-hole device itself, not on your personal Windows or Mac computer. Connect to your Pi-hole over SSH first (see the Key Concepts section in the main [README](../README.md) if you are not sure how to do this).
+
 ### Option 1 — Import with PowerShell
 
-Run this on your Pi-hole host. Requires PowerShell 7+ and `sqlite3` CLI.
+**What you need first:**
+- PowerShell 7 or later installed on your Pi-hole device
+- The `sqlite3` command-line tool installed on your Pi-hole device
 
+**Install PowerShell 7 on Raspberry Pi OS / Debian / Ubuntu:**
+```bash
+sudo apt-get update
+sudo apt-get install -y wget apt-transport-https
+wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt-get update
+sudo apt-get install -y powershell
+```
+
+**Install sqlite3:**
+```bash
+sudo apt-get install -y sqlite3
+```
+
+**Run the import script:**
 ```bash
 sudo pwsh ./Import-PiHoleBlocklists.ps1
 ```
 
 ### Option 2 — Import with Python
 
-Run this on your Pi-hole host. Requires Python 3.6+ and the `requests` library.
+**What you need first:**
+- Python 3.6 or later (check your version by running `python3 --version`)
+- The `requests` library
 
+**Install the requests library:**
 ```bash
-pip install requests
+pip3 install requests
+```
+
+If `pip3` is not found, install it first:
+```bash
+sudo apt-get install -y python3-pip
+```
+
+**Run the import script:**
+```bash
 sudo python3 import_pihole_blocklists.py
 ```
 
-Both scripts will:
-- Download `blocklists.txt` directly from this repo
+**What both scripts do:**
+- Download `blocklists.txt` directly from this GitHub repository
 - Insert each URL into Pi-hole's gravity database
-- Skip any URLs already present (safe to run multiple times)
-- Run `pihole -g` automatically to update gravity when done
+- Skip any URLs that are already in the database (safe to run more than once)
+- Run `pihole -g` automatically at the end to update gravity and activate the new lists
+
+**How long does it take?**
+The import itself takes a few seconds. The gravity update at the end can take 1 to 10 minutes depending on your Pi-hole hardware and internet speed. You will see progress messages as it runs.
 
 ---
 
@@ -93,14 +143,29 @@ sudo python3 import_pihole_blocklists.py --skip-gravity-update
 
 ## Manual Setup (No Script)
 
-To add lists manually via the Pi-hole admin panel:
+If you prefer not to run a script, you can add lists manually through the Pi-hole admin panel. This takes longer but requires no technical knowledge beyond clicking through a web interface.
 
-1. Log into your Pi-hole admin panel at `http://<your-pihole-ip>/admin`
-2. Navigate to **Group Management > Adlists**
-3. Paste the raw URL of any list into the **Address** field
-4. Add a comment/description if desired
-5. Click **Add**
-6. After adding all desired lists go to **Tools > Update Gravity** and click **Update**
+**Step 1 — Open the admin panel**
+
+Open a browser on any device on your network and go to:
+```
+http://<your-pihole-ip>/admin
+```
+Replace `<your-pihole-ip>` with your Pi-hole's actual IP address. Log in with your Pi-hole password.
+
+**Step 2 — Navigate to Adlists**
+
+In the left menu, click **Group Management**, then click **Adlists**.
+
+**Step 3 — Add a list**
+
+Open `blocklists.txt` from this repository. Copy one URL, paste it into the **Address** field in the admin panel, optionally add a comment to remind yourself what the list is for, and click **Add**. Repeat for each URL you want to add.
+
+**Step 4 — Update Gravity**
+
+After adding all your lists, go to **Tools** in the left menu and click **Update Gravity**. Then click the **Update** button. Pi-hole will download all the lists and rebuild its block database. This step is required — the lists will not be active until gravity is updated.
+
+Progress will be shown on screen. When you see a green success message, your new lists are active.
 
 ---
 
