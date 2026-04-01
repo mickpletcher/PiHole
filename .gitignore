@@ -1,0 +1,7 @@
+# Generated blocklist outputs — produce these locally with Build-CuratedBlocklist.ps1
+Lists/CuratedBlackList.txt
+Lists/CuratedWhitelist.txt
+Lists/FailedSources.txt
+
+# Temporary atomic-write files created during list generation
+Lists/curated-*.txt

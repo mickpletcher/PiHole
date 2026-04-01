@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  lint:
+    name: Lint PowerShell
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $results = Get-ChildItem -Path . -Filter '*.ps1' -Recurse |
+            Invoke-ScriptAnalyzer -Severity Error,Warning
+          if ($results) {
+            $results | Format-Table -AutoSize
+            Write-Error "PSScriptAnalyzer found $($results.Count) issue(s)."
+            exit 1
+          }
+          Write-Host "PSScriptAnalyzer: no issues found."
+
+  build-lists:
+    name: Build Curated Lists
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build curated blocklist and whitelist
+        shell: pwsh
+        run: |
+          Lists/Build-CuratedBlocklist.ps1 -Verbose
+
+      - name: Upload CuratedBlackList
+        uses: actions/upload-artifact@v4
+        with:
+          name: CuratedBlackList
+          path: Lists/CuratedBlackList.txt
+
+      - name: Upload CuratedWhitelist
+        uses: actions/upload-artifact@v4
+        with:
+          name: CuratedWhitelist
+          path: Lists/CuratedWhitelist.txt
+
+      - name: Upload FailedSources
+        uses: actions/upload-artifact@v4
+        with:
+          name: FailedSources
+          path: Lists/FailedSources.txt

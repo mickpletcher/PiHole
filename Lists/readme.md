@@ -28,9 +28,9 @@ It is a file at `/etc/pihole/gravity.db` on your Pi-hole device. The import scri
 | `PiHoleListSources.txt` | Plain text file containing all source list URLs, one per line |
 | `CountryGeoFencing.txt` | List of countries used to configure geo-fencing DNS blocks |
 | `Build-CuratedBlocklist.ps1` | PowerShell script that downloads all source lists, extracts domains, sorts, and de-duplicates output |
-| `CuratedBlackList.txt` | Generated blocklist output file produced by Build-CuratedBlocklist.ps1 |
-| `CuratedWhitelist.txt` | Generated whitelist output file produced by Build-CuratedBlocklist.ps1 |
-| `FailedSources.txt` | Generated run log file produced by Build-CuratedBlocklist.ps1 listing failed source URLs (can be blank) |
+| `CuratedBlackList.txt` | **Generated locally — not tracked in git.** Run `Build-CuratedBlocklist.ps1` to produce this file. |
+| `CuratedWhitelist.txt` | **Generated locally — not tracked in git.** Run `Build-CuratedBlocklist.ps1` to produce this file. |
+| `FailedSources.txt` | **Generated locally — not tracked in git.** Produced by `Build-CuratedBlocklist.ps1`; lists failed source URLs (can be blank). |
 | `Import-PiHoleBlocklists.ps1` | PowerShell script to bulk import all lists into Pi-hole's gravity database |
 | `import_pihole_blocklists.py` | Python script to bulk import all lists into Pi-hole's gravity database |
 
@@ -113,6 +113,8 @@ The import itself takes a few seconds. The gravity update at the end can take 1 
 
 Use `Build-CuratedBlocklist.ps1` when you want de-duplicated domain files generated from all URLs listed in `PiHoleListSources.txt`.
 
+> **Note:** `CuratedBlackList.txt`, `CuratedWhitelist.txt`, and `FailedSources.txt` are **not tracked in this repository**. Run the script locally to generate them. The CI workflow also builds them and uploads them as downloadable workflow artifacts.
+
 What it does:
 
 - Reads source URLs from GitHub or a local source file
@@ -123,24 +125,25 @@ What it does:
 - Writes output to `CuratedBlackList.txt` using atomic replace
 - Writes whitelist output to `CuratedWhitelist.txt` using atomic replace
 - Always writes `FailedSources.txt` for the run (blank when there are no failures)
-- Deletes previous generated output files before each run and verifies deletion on screen
 - Shows download progress counters such as `1 of 56`
-- Optionally stages, commits, and pushes all generated output files to GitHub (`CuratedBlackList.txt`, `CuratedWhitelist.txt`, and `FailedSources.txt`)
+- Optionally stages, commits, and pushes all generated output files to GitHub when `-EnableGitPush` is passed
+
+**Prerequisites:** PowerShell 7 or later. On Windows, PowerShell 7 can be downloaded from https://github.com/PowerShell/PowerShell/releases. On Linux/macOS it is available via your package manager.
 
 Examples:
 
 ```powershell
-# Build curated output only
+# Build curated output locally (default — no push to GitHub)
 .\Build-CuratedBlocklist.ps1
 
-# Strict mode plus failed source log
-.\Build-CuratedBlocklist.ps1 -FailOnSourceError -FailedSourcesLogFile .\FailedSources.txt
+# Strict mode: stop on first source failure
+.\Build-CuratedBlocklist.ps1 -FailOnSourceError
 
-# Build and push to GitHub
-.\Build-CuratedBlocklist.ps1
+# Preview what would happen without writing any files
+.\Build-CuratedBlocklist.ps1 -WhatIf
 
-# Disable push for a local-only run
-.\Build-CuratedBlocklist.ps1 -DisableGitPush
+# Build and push updated outputs to GitHub (requires git configured with push access)
+.\Build-CuratedBlocklist.ps1 -EnableGitPush
 ```
 
 ---

@@ -9,8 +9,8 @@ domain set, then writes the result to CuratedBlackList.txt.
 
 Whitelist source URLs are processed into a separate CuratedWhitelist.txt file.
 
-Unless DisableGitPush is set, the script stages the output file, commits only when
-changes exist, and pushes to the selected remote and branch.
+By default the script generates output files locally and does NOT push to GitHub.
+Pass -EnableGitPush to stage, commit, and push the generated output files.
 
 .PARAMETER SourcesFile
 Local path or URL containing source list URLs, one URL per line.
@@ -40,20 +40,27 @@ When set, stop the script immediately if any source URL fails.
 Path to a text file used to log source URLs that failed to download or parse.
 This file is always generated each run and can be empty.
 
+.PARAMETER EnableGitPush
+When set, stage, commit, and push the generated output files to GitHub.
+By default, no push is performed.
+
 .PARAMETER DisableGitPush
-When set, skip staging, committing, and pushing generated output files.
+Deprecated. No-push is the default behavior now. This switch is kept for
+backwards compatibility and has no effect unless -EnableGitPush is also set.
 
 .PARAMETER GitRemote
-Git remote name used unless DisableGitPush is set. Default is origin.
+Git remote name used when EnableGitPush is set. Default is origin.
 
 .PARAMETER GitBranch
-Git branch name used unless DisableGitPush is set. Default is main.
+Git branch name used when EnableGitPush is set. Default is main.
 
 .PARAMETER CommitMessage
-Commit message used unless DisableGitPush is set and changes are detected.
+Commit message used when EnableGitPush is set and changes are detected.
 
 .EXAMPLE
 .\Build-CuratedBlocklist.ps1
+
+Builds the curated blocklist and whitelist locally. No files are pushed to GitHub.
 
 .EXAMPLE
 .\Build-CuratedBlocklist.ps1 -SourcesFile .\PiHoleListSources.txt -OutputFile .\CuratedBlackList.txt
@@ -62,13 +69,12 @@ Commit message used unless DisableGitPush is set and changes are detected.
 .\Build-CuratedBlocklist.ps1 -OutputFile .\CuratedBlackList.txt -WhitelistOutputFile .\CuratedWhitelist.txt
 
 .EXAMPLE
-.\Build-CuratedBlocklist.ps1
+.\Build-CuratedBlocklist.ps1 -EnableGitPush
+
+Builds the curated blocklist and pushes the output files to GitHub.
 
 .EXAMPLE
-.\Build-CuratedBlocklist.ps1 -DisableGitPush
-
-.EXAMPLE
-.\Build-CuratedBlocklist.ps1 -GitRemote origin -GitBranch main -CommitMessage "Refresh curated blocklist"
+.\Build-CuratedBlocklist.ps1 -EnableGitPush -GitRemote origin -GitBranch main -CommitMessage "Refresh curated blocklist"
 
 .NOTES
 Requires internet access for URL based sources.
@@ -86,6 +92,7 @@ param(
     [int]$RetryDelaySec = 2,
     [bool]$FailOnSourceError = $false,
     [string]$FailedSourcesLogFile = (Join-Path $PSScriptRoot 'FailedSources.txt'),
+    [switch]$EnableGitPush,
     [switch]$DisableGitPush,
     [string]$GitRemote = 'origin',
     [string]$GitBranch = 'main',
@@ -93,6 +100,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($DisableGitPush) {
+    Write-Warning "-DisableGitPush is deprecated. No-push is the default behavior. The switch has no effect and can be removed."
+}
+
+# Resolve effective push flag: push only when -EnableGitPush is explicitly provided.
+$gitPushEnabled = $EnableGitPush.IsPresent
 
 function Get-DomainFromLine {
     param(
@@ -286,18 +300,7 @@ function Push-FilesToGitHub {
 }
 
 if (Test-Path -Path $OutputFile -PathType Leaf) {
-    Write-Host "Existing output file found. Deleting: $OutputFile"
-
-    if ($PSCmdlet.ShouldProcess($OutputFile, 'Delete existing output file')) {
-        Remove-Item -Path $OutputFile -Force
-    }
-
-    if (-not (Test-Path -Path $OutputFile -PathType Leaf)) {
-        Write-Host 'Verified output file deletion.'
-    }
-    else {
-        throw "Output file still exists after delete attempt: $OutputFile"
-    }
+    Write-Host "Existing output file found, will be overwritten: $OutputFile"
 }
 else {
     Write-Host "No existing output file found: $OutputFile"
@@ -305,18 +308,7 @@ else {
 
 if ($WhitelistOutputFile) {
     if (Test-Path -Path $WhitelistOutputFile -PathType Leaf) {
-        Write-Host "Existing whitelist output file found. Deleting: $WhitelistOutputFile"
-
-        if ($PSCmdlet.ShouldProcess($WhitelistOutputFile, 'Delete existing whitelist file')) {
-            Remove-Item -Path $WhitelistOutputFile -Force
-        }
-
-        if (-not (Test-Path -Path $WhitelistOutputFile -PathType Leaf)) {
-            Write-Host 'Verified whitelist output file deletion.'
-        }
-        else {
-            throw "Whitelist output file still exists after delete attempt: $WhitelistOutputFile"
-        }
+        Write-Host "Existing whitelist output file found, will be overwritten: $WhitelistOutputFile"
     }
     else {
         Write-Host "No existing whitelist output file found: $WhitelistOutputFile"
@@ -325,18 +317,7 @@ if ($WhitelistOutputFile) {
 
 if ($FailedSourcesLogFile) {
     if (Test-Path -Path $FailedSourcesLogFile -PathType Leaf) {
-        Write-Host "Existing failed source log found. Deleting: $FailedSourcesLogFile"
-
-        if ($PSCmdlet.ShouldProcess($FailedSourcesLogFile, 'Delete existing failed source log')) {
-            Remove-Item -Path $FailedSourcesLogFile -Force
-        }
-
-        if (-not (Test-Path -Path $FailedSourcesLogFile -PathType Leaf)) {
-            Write-Host 'Verified failed source log deletion.'
-        }
-        else {
-            throw "Failed source log still exists after delete attempt: $FailedSourcesLogFile"
-        }
+        Write-Host "Existing failed source log found, will be overwritten: $FailedSourcesLogFile"
     }
     else {
         Write-Host "No existing failed source log found: $FailedSourcesLogFile"
@@ -485,7 +466,7 @@ if ($FailedSourcesLogFile) {
     }
 }
 
-if (-not $DisableGitPush) {
+if ($gitPushEnabled) {
     $filesToPush = [System.Collections.Generic.List[string]]::new()
     [void]$filesToPush.Add($OutputFile)
     [void]$filesToPush.Add($WhitelistOutputFile)
