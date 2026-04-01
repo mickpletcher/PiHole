@@ -7,16 +7,22 @@ Reads source list URLs from a local file path or URL, downloads each source,
 extracts domains from common list formats, sorts and de duplicates the final
 domain set, then writes the result to CuratedBlocklist.txt.
 
+Whitelist source URLs are processed into a separate CuratedWhilelist.txt file.
+
 If PushToGitHub is set, the script stages the output file, commits only when
 changes exist, and pushes to the selected remote and branch.
 
 .PARAMETER SourcesFile
 Local path or URL containing source list URLs, one URL per line.
-Default is the GitHub URL for PiHoleBlocklistSources.txt.
+Default is the local PiHoleListSources.txt file in the same folder as this script.
 
 .PARAMETER OutputFile
 Destination path for the curated output file.
 Default is CuratedBlocklist.txt in the same folder as this script.
+
+.PARAMETER WhitelistOutputFile
+Destination path for the curated whitelist output file.
+Default is CuratedWhilelist.txt in the same folder as this script.
 
 .PARAMETER TimeoutSec
 HTTP timeout in seconds for source URL and list downloads.
@@ -35,8 +41,8 @@ Path to a text file used to log source URLs that failed to download or parse.
 This file is always generated each run and can be empty.
 
 .PARAMETER PushToGitHub
-When set, stage, commit, and push the output file after it is generated.
-FailedSourcesLogFile is pushed in the same commit.
+When true, stage, commit, and push the output file after it is generated.
+FailedSourcesLogFile and WhitelistOutputFile are pushed in the same commit.
 
 .PARAMETER GitRemote
 Git remote name used when PushToGitHub is set. Default is origin.
@@ -54,6 +60,9 @@ Commit message used when PushToGitHub is set and changes are detected.
 .\Build-CuratedBlocklist.ps1 -SourcesFile .\PiHoleBlocklistSources.txt -OutputFile .\CuratedBlocklist.txt
 
 .EXAMPLE
+.\Build-CuratedBlocklist.ps1 -OutputFile .\CuratedBlocklist.txt -WhitelistOutputFile .\CuratedWhilelist.txt
+
+.EXAMPLE
 .\Build-CuratedBlocklist.ps1 -PushToGitHub
 
 .EXAMPLE
@@ -65,16 +74,17 @@ Git push flow requires git to be installed and the script to run inside a git re
 Use -WhatIf to preview write and push actions without making changes.
 #>
 
-[CmdletBinding(SupportsShouldProcess = $true)]
+[CmdletBinding()]
 param(
-    [string]$SourcesFile = 'https://github.com/mickpletcher/PiHole/blob/main/Blocklists/PiHoleBlocklistSources.txt',
-    [string]$OutputFile = (Join-Path $PSScriptRoot 'CuratedBlocklist.txt'),
+    [string]$SourcesFile = (Join-Path $PSScriptRoot 'PiHoleListSources.txt'),
+    [string]$OutputFile = (Join-Path $PSScriptRoot 'CuratedBlackList.txt'),
+    [string]$WhitelistOutputFile = (Join-Path $PSScriptRoot 'CuratedWhilelist.txt'),
     [int]$TimeoutSec = 60,
     [int]$RetryCount = 3,
     [int]$RetryDelaySec = 2,
     [switch]$FailOnSourceError,
     [string]$FailedSourcesLogFile = (Join-Path $PSScriptRoot 'FailedSources.txt'),
-    [switch]$PushToGitHub,
+    [bool]$PushToGitHub = $true,
     [string]$GitRemote = 'origin',
     [string]$GitBranch = 'main',
     [string]$CommitMessage = ("Update CuratedBlocklist.txt " + (Get-Date -Format 'yyyy-MM-dd'))
@@ -84,7 +94,7 @@ $ErrorActionPreference = 'Stop'
 
 function Get-DomainFromLine {
     param(
-        [Parameter(Mandatory)]
+        [AllowEmptyString()]
         [string]$Line
     )
 
@@ -233,7 +243,7 @@ function Push-FilesToGitHub {
             throw "Output file is not inside the repository: $resolvedFilePath"
         }
 
-        $relativePath = $resolvedFilePath.Substring($repoRoot.Length).TrimStart('\\', '/')
+        $relativePath = $resolvedFilePath.Substring($repoRoot.Length).TrimStart([char[]]@('\', '/'))
         [void]$relativePaths.Add($relativePath)
     }
 
@@ -243,9 +253,6 @@ function Push-FilesToGitHub {
     }
 
     $targetFiles = ($relativePaths -join ', ')
-    if (-not $PSCmdlet.ShouldProcess($targetFiles, "Stage, commit, and push to $Remote/$Branch")) {
-        return
-    }
 
     & git -C $repoRoot add -- @($relativePaths)
     if ($LASTEXITCODE -ne 0) {
@@ -258,7 +265,7 @@ function Push-FilesToGitHub {
         return
     }
 
-    & git -C $repoRoot commit -m $Message -- $relativePath
+    & git -C $repoRoot commit -m $Message -- @($relativePaths)
     if ($LASTEXITCODE -ne 0) {
         throw 'Failed to create commit.'
     }
@@ -271,6 +278,58 @@ function Push-FilesToGitHub {
     Write-Host "Pushed $targetFiles to $Remote/$Branch"
 }
 
+if (Test-Path -Path $OutputFile -PathType Leaf) {
+    Write-Host "Existing output file found. Deleting: $OutputFile"
+
+    Remove-Item -Path $OutputFile -Force
+
+    if (-not (Test-Path -Path $OutputFile -PathType Leaf)) {
+        Write-Host 'Verified output file deletion.'
+    }
+    else {
+        throw "Output file still exists after delete attempt: $OutputFile"
+    }
+}
+else {
+    Write-Host "No existing output file found: $OutputFile"
+}
+
+if ($WhitelistOutputFile) {
+    if (Test-Path -Path $WhitelistOutputFile -PathType Leaf) {
+        Write-Host "Existing whitelist output file found. Deleting: $WhitelistOutputFile"
+
+        Remove-Item -Path $WhitelistOutputFile -Force
+
+        if (-not (Test-Path -Path $WhitelistOutputFile -PathType Leaf)) {
+            Write-Host 'Verified whitelist output file deletion.'
+        }
+        else {
+            throw "Whitelist output file still exists after delete attempt: $WhitelistOutputFile"
+        }
+    }
+    else {
+        Write-Host "No existing whitelist output file found: $WhitelistOutputFile"
+    }
+}
+
+if ($FailedSourcesLogFile) {
+    if (Test-Path -Path $FailedSourcesLogFile -PathType Leaf) {
+        Write-Host "Existing failed source log found. Deleting: $FailedSourcesLogFile"
+
+        Remove-Item -Path $FailedSourcesLogFile -Force
+
+        if (-not (Test-Path -Path $FailedSourcesLogFile -PathType Leaf)) {
+            Write-Host 'Verified failed source log deletion.'
+        }
+        else {
+            throw "Failed source log still exists after delete attempt: $FailedSourcesLogFile"
+        }
+    }
+    else {
+        Write-Host "No existing failed source log found: $FailedSourcesLogFile"
+    }
+}
+
 $sourceUrls = Get-SourceUrlList -SourceLocation $SourcesFile -RequestTimeoutSec $TimeoutSec |
     ForEach-Object { $_.Trim() } |
     Where-Object {
@@ -278,21 +337,33 @@ $sourceUrls = Get-SourceUrlList -SourceLocation $SourcesFile -RequestTimeoutSec 
         -not $_.StartsWith('#')
     }
 
+$whitelistSourceUrls = $sourceUrls | Where-Object { $_ -match '(?i)whitelist' }
+$sourceUrls = $sourceUrls | Where-Object { $_ -notmatch '(?i)whitelist' }
+
 if (-not $sourceUrls -or $sourceUrls.Count -eq 0) {
     throw "No source URLs found in $SourcesFile"
 }
 
+$totalSources = $sourceUrls.Count
 $domains = [System.Collections.Generic.List[string]]::new()
+$whitelistDomains = [System.Collections.Generic.List[string]]::new()
 $failedSources = [System.Collections.Generic.List[string]]::new()
+$processedSourceCount = 0
+$processedWhitelistSourceCount = 0
 
 foreach ($url in $sourceUrls) {
-    Write-Host "Downloading: $url"
+    $processedSourceCount++
+    Write-Host "Downloading [$processedSourceCount of $totalSources]: $url"
 
     try {
         $response = Invoke-WebRequestWithRetry -Uri $url -RequestTimeoutSec $TimeoutSec -Attempts $RetryCount -DelaySec $RetryDelaySec
         $lines = $response.Content -split "`n"
 
         foreach ($line in $lines) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
+            }
+
             $domain = Get-DomainFromLine -Line $line
             if ($domain) {
                 $domains.Add($domain)
@@ -310,7 +381,42 @@ foreach ($url in $sourceUrls) {
     }
 }
 
+$totalWhitelistSources = $whitelistSourceUrls.Count
+
+foreach ($url in $whitelistSourceUrls) {
+    $processedWhitelistSourceCount++
+    Write-Host "Downloading whitelist [$processedWhitelistSourceCount of $totalWhitelistSources]: $url"
+
+    try {
+        $response = Invoke-WebRequestWithRetry -Uri $url -RequestTimeoutSec $TimeoutSec -Attempts $RetryCount -DelaySec $RetryDelaySec
+        $lines = $response.Content -split "`n"
+
+        foreach ($line in $lines) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
+            }
+
+            $domain = Get-DomainFromLine -Line $line
+            if ($domain) {
+                $whitelistDomains.Add($domain)
+            }
+        }
+    }
+    catch {
+        Write-Warning "Failed to process whitelist source: $url"
+        Write-Warning $_
+        $failedSources.Add($url)
+
+        if ($FailOnSourceError) {
+            throw "Stopping because FailOnSourceError is set. Whitelist source failed: $url"
+        }
+    }
+}
+
 $curated = $domains |
+    Sort-Object -Unique
+
+$curatedWhitelist = $whitelistDomains |
     Sort-Object -Unique
 
 $destinationFolder = Split-Path -Path $OutputFile -Parent
@@ -321,16 +427,33 @@ if ($destinationFolder -and -not (Test-Path -Path $destinationFolder -PathType C
     New-Item -Path $destinationFolder -ItemType Directory -Force | Out-Null
 }
 
-if ($PSCmdlet.ShouldProcess($OutputFile, 'Write curated blocklist (atomic replace)')) {
-    $tempFile = Join-Path -Path $destinationFolder -ChildPath ("curated-temp-" + [guid]::NewGuid().ToString() + ".txt")
-    try {
-        $curated | Set-Content -Path $tempFile -Encoding UTF8
-        Move-Item -Path $tempFile -Destination $OutputFile -Force
+ $tempFile = Join-Path -Path $destinationFolder -ChildPath ("curated-temp-" + [guid]::NewGuid().ToString() + ".txt")
+try {
+    $curated | Set-Content -Path $tempFile -Encoding UTF8
+    Move-Item -Path $tempFile -Destination $OutputFile -Force
+}
+finally {
+    if (Test-Path -Path $tempFile -PathType Leaf) {
+        Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
     }
-    finally {
-        if (Test-Path -Path $tempFile -PathType Leaf) {
-            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
-        }
+}
+
+$whitelistDestinationFolder = Split-Path -Path $WhitelistOutputFile -Parent
+if ([string]::IsNullOrWhiteSpace($whitelistDestinationFolder)) {
+    $whitelistDestinationFolder = (Get-Location).Path
+}
+if ($whitelistDestinationFolder -and -not (Test-Path -Path $whitelistDestinationFolder -PathType Container)) {
+    New-Item -Path $whitelistDestinationFolder -ItemType Directory -Force | Out-Null
+}
+
+$tempWhitelistFile = Join-Path -Path $whitelistDestinationFolder -ChildPath ("curated-whitelist-temp-" + [guid]::NewGuid().ToString() + ".txt")
+try {
+    $curatedWhitelist | Set-Content -Path $tempWhitelistFile -Encoding UTF8
+    Move-Item -Path $tempWhitelistFile -Destination $WhitelistOutputFile -Force
+}
+finally {
+    if (Test-Path -Path $tempWhitelistFile -PathType Leaf) {
+        Remove-Item -Path $tempWhitelistFile -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -340,14 +463,13 @@ if ($FailedSourcesLogFile) {
         New-Item -Path $failedLogFolder -ItemType Directory -Force | Out-Null
     }
 
-    if ($PSCmdlet.ShouldProcess($FailedSourcesLogFile, 'Write failed source log')) {
-        $failedSources | Set-Content -Path $FailedSourcesLogFile -Encoding UTF8
-    }
+    $failedSources | Set-Content -Path $FailedSourcesLogFile -Encoding UTF8
 }
 
 if ($PushToGitHub) {
     $filesToPush = [System.Collections.Generic.List[string]]::new()
     [void]$filesToPush.Add($OutputFile)
+    [void]$filesToPush.Add($WhitelistOutputFile)
 
     if ($FailedSourcesLogFile) {
         [void]$filesToPush.Add($FailedSourcesLogFile)
@@ -359,9 +481,12 @@ if ($PushToGitHub) {
 Write-Host ""
 Write-Host "Complete"
 Write-Host "  Sources read : $($sourceUrls.Count)"
+Write-Host "  Whitelist skipped: $($whitelistSourceUrls.Count)"
 Write-Host "  Sources failed: $($failedSources.Count)"
 Write-Host "  Domains output: $($curated.Count)"
+Write-Host "  Whitelist domains: $($curatedWhitelist.Count)"
 Write-Host "  Output file   : $OutputFile"
+Write-Host "  Whitelist file: $WhitelistOutputFile"
 if ($FailedSourcesLogFile) {
     Write-Host "  Failed log    : $FailedSourcesLogFile"
 }
