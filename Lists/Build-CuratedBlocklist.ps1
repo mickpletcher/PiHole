@@ -7,7 +7,7 @@ Reads source list URLs from a local file path or URL, downloads each source,
 extracts domains from common list formats, sorts and de duplicates the final
 domain set, then writes the result to CuratedBlackList.txt.
 
-Whitelist source URLs are processed into a separate CuratedWhilelist.txt file.
+Whitelist source URLs are processed into a separate CuratedWhitelist.txt file.
 
 Unless DisableGitPush is set, the script stages the output file, commits only when
 changes exist, and pushes to the selected remote and branch.
@@ -22,7 +22,7 @@ Default is CuratedBlackList.txt in the same folder as this script.
 
 .PARAMETER WhitelistOutputFile
 Destination path for the curated whitelist output file.
-Default is CuratedWhilelist.txt in the same folder as this script.
+Default is CuratedWhitelist.txt in the same folder as this script.
 
 .PARAMETER TimeoutSec
 HTTP timeout in seconds for source URL and list downloads.
@@ -59,7 +59,7 @@ Commit message used unless DisableGitPush is set and changes are detected.
 .\Build-CuratedBlocklist.ps1 -SourcesFile .\PiHoleListSources.txt -OutputFile .\CuratedBlackList.txt
 
 .EXAMPLE
-.\Build-CuratedBlocklist.ps1 -OutputFile .\CuratedBlackList.txt -WhitelistOutputFile .\CuratedWhilelist.txt
+.\Build-CuratedBlocklist.ps1 -OutputFile .\CuratedBlackList.txt -WhitelistOutputFile .\CuratedWhitelist.txt
 
 .EXAMPLE
 .\Build-CuratedBlocklist.ps1
@@ -80,7 +80,7 @@ Use -WhatIf to preview write and push actions without making changes.
 param(
     [string]$SourcesFile = (Join-Path $PSScriptRoot 'PiHoleListSources.txt'),
     [string]$OutputFile = (Join-Path $PSScriptRoot 'CuratedBlackList.txt'),
-    [string]$WhitelistOutputFile = (Join-Path $PSScriptRoot 'CuratedWhilelist.txt'),
+    [string]$WhitelistOutputFile = (Join-Path $PSScriptRoot 'CuratedWhitelist.txt'),
     [int]$TimeoutSec = 60,
     [int]$RetryCount = 3,
     [int]$RetryDelaySec = 2,

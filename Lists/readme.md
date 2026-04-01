@@ -29,7 +29,7 @@ It is a file at `/etc/pihole/gravity.db` on your Pi-hole device. The import scri
 | `CountryGeoFencing.txt` | List of countries used to configure geo-fencing DNS blocks |
 | `Build-CuratedBlocklist.ps1` | PowerShell script that downloads all source lists, extracts domains, sorts, and de-duplicates output |
 | `CuratedBlackList.txt` | Generated blocklist output file produced by Build-CuratedBlocklist.ps1 |
-| `CuratedWhilelist.txt` | Generated whitelist output file produced by Build-CuratedBlocklist.ps1 |
+| `CuratedWhitelist.txt` | Generated whitelist output file produced by Build-CuratedBlocklist.ps1 |
 | `FailedSources.txt` | Generated run log file produced by Build-CuratedBlocklist.ps1 listing failed source URLs (can be blank) |
 | `Import-PiHoleBlocklists.ps1` | PowerShell script to bulk import all lists into Pi-hole's gravity database |
 | `import_pihole_blocklists.py` | Python script to bulk import all lists into Pi-hole's gravity database |
@@ -121,11 +121,11 @@ What it does:
 - Separates blocklist and whitelist sources automatically
 - Sorts and de-duplicates domains for each output
 - Writes output to `CuratedBlackList.txt` using atomic replace
-- Writes whitelist output to `CuratedWhilelist.txt` using atomic replace
+- Writes whitelist output to `CuratedWhitelist.txt` using atomic replace
 - Always writes `FailedSources.txt` for the run (blank when there are no failures)
 - Deletes previous generated output files before each run and verifies deletion on screen
 - Shows download progress counters such as `1 of 56`
-- Optionally stages, commits, and pushes all generated output files to GitHub (`CuratedBlackList.txt`, `CuratedWhilelist.txt`, and `FailedSources.txt`)
+- Optionally stages, commits, and pushes all generated output files to GitHub (`CuratedBlackList.txt`, `CuratedWhitelist.txt`, and `FailedSources.txt`)
 
 Examples:
 
