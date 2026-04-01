@@ -53,7 +53,7 @@ Python is a programming language. Scripts with a `.py` extension are Python scri
 | Folder / File | What It Contains |
 |---------------|-----------------|
 | `Lists/` | A collection of 57 blocklist sources, import scripts, generated outputs, and setup instructions |
-| `Lists/readme.md` | Step-by-step instructions for adding the lists and generating curated outputs |
+| `Lists/README.md` | Step-by-step instructions for adding the lists and generating curated outputs |
 | `Lists/PiHoleListSources.txt` | A plain text file with all source list URLs, one per line |
 | `Lists/CountryGeoFencing.txt` | A list of countries used to configure geo-fencing DNS blocks |
 | `Lists/Build-CuratedBlocklist.ps1` | A PowerShell script that builds curated blocklist and whitelist outputs and can optionally commit and push updates |
@@ -63,6 +63,8 @@ Python is a programming language. Scripts with a `.py` extension are Python scri
 | `Lists/Import-PiHoleBlocklists.ps1` | A PowerShell script that automatically adds all source list URLs to Pi-hole |
 | `Lists/import_pihole_blocklists.py` | A Python script that does the same thing as above |
 | `Get-PiHoleConfig.ps1` | A PowerShell script that pulls Pi-hole v6 configuration and summary data to a sanitized JSON file for review or troubleshooting |
+| `Remove-DuplicateCsvRows.ps1` | A PowerShell script that removes column 1 and de-duplicates very large CSV files by key columns |
+| `.gitignore` | Git ignore rules that exclude local CSV data files from commits and pushes |
 
 ---
 
@@ -95,7 +97,7 @@ If you are not sure where to find this setting, search online for "set DNS serve
 
 **Step 3 — Add the Blocklists**
 
-Out of the box Pi-hole uses a basic default blocklist. The real blocking power comes from adding curated lists that cover ads, tracking, malware, phishing, and more. Follow the instructions in [Lists/readme.md](Lists/readme.md) to add the full collection to your Pi-hole.
+Out of the box Pi-hole uses a basic default blocklist. The real blocking power comes from adding curated lists that cover ads, tracking, malware, phishing, and more. Follow the instructions in [Lists/README.md](Lists/README.md) to add the full collection to your Pi-hole.
 
 **Step 4 — Set Up Automation**
 
@@ -345,6 +347,45 @@ Before saving, the script replaces the following with `[REDACTED]`:
 - Any field whose name suggests it contains sensitive data
 
 The resulting file is safe to attach to a support request, post in a forum, or share with someone helping you diagnose a Pi-hole issue. Still review the file before sharing to confirm it meets your own comfort level.
+
+---
+
+## CSV De-Duplication Helper
+
+Use `Remove-DuplicateCsvRows.ps1` to process large CSV files without loading the full file into memory.
+
+What it does:
+
+- Reads the input CSV as a stream for large file support
+- Removes column 1 from output
+- De-duplicates rows by original key columns (defaults to columns 2, 3, and 4)
+- Writes progress every 100,000 rows
+- Writes a new output CSV file
+
+Default behavior:
+
+- If `-InputPath` is omitted, the script looks for a `.csv` file in the same directory as the script
+- If exactly one CSV is found, that file is used
+- If multiple CSV files are found, pass `-InputPath` explicitly
+- If `-OutputPath` is omitted, output is written as `<inputName>.deduped.csv` in the same folder
+
+Examples:
+
+```powershell
+# Auto-detect one CSV in script folder
+.\Remove-DuplicateCsvRows.ps1
+
+# Explicit input and output paths
+.\Remove-DuplicateCsvRows.ps1 -InputPath .\blocked_only_queries.csv -OutputPath .\blocked_only_queries.deduped.csv
+
+# Custom duplicate key columns
+.\Remove-DuplicateCsvRows.ps1 -InputPath .\blocked_only_queries.csv -KeyColumns 2,5,8
+```
+
+Git behavior for CSV files:
+
+- This repository ignores `*.csv` through `.gitignore`
+- Local CSV inputs and outputs are excluded from commit and push
 
 ---
 

@@ -34,6 +34,9 @@ It is a file at `/etc/pihole/gravity.db` on your Pi-hole device. The import scri
 | `Import-PiHoleBlocklists.ps1` | PowerShell script to bulk import all lists into Pi-hole's gravity database |
 | `import_pihole_blocklists.py` | Python script to bulk import all lists into Pi-hole's gravity database |
 
+Note: The repository root includes `Remove-DuplicateCsvRows.ps1` for local cleanup of very large CSV exports. It removes column 1 and de-duplicates rows using original columns 2, 3, and 4 by default.
+Local `.csv` files are ignored by Git via the root `.gitignore`.
+
 ---
 
 ## Quick Start
