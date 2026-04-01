@@ -5,11 +5,11 @@ Builds a curated Pi hole domain blocklist from source list URLs.
 .DESCRIPTION
 Reads source list URLs from a local file path or URL, downloads each source,
 extracts domains from common list formats, sorts and de duplicates the final
-domain set, then writes the result to CuratedBlocklist.txt.
+domain set, then writes the result to CuratedBlackList.txt.
 
 Whitelist source URLs are processed into a separate CuratedWhilelist.txt file.
 
-If PushToGitHub is set, the script stages the output file, commits only when
+Unless DisableGitPush is set, the script stages the output file, commits only when
 changes exist, and pushes to the selected remote and branch.
 
 .PARAMETER SourcesFile
@@ -18,7 +18,7 @@ Default is the local PiHoleListSources.txt file in the same folder as this scrip
 
 .PARAMETER OutputFile
 Destination path for the curated output file.
-Default is CuratedBlocklist.txt in the same folder as this script.
+Default is CuratedBlackList.txt in the same folder as this script.
 
 .PARAMETER WhitelistOutputFile
 Destination path for the curated whitelist output file.
@@ -40,33 +40,35 @@ When set, stop the script immediately if any source URL fails.
 Path to a text file used to log source URLs that failed to download or parse.
 This file is always generated each run and can be empty.
 
-.PARAMETER PushToGitHub
-When true, stage, commit, and push the output file after it is generated.
-FailedSourcesLogFile and WhitelistOutputFile are pushed in the same commit.
+.PARAMETER DisableGitPush
+When set, skip staging, committing, and pushing generated output files.
 
 .PARAMETER GitRemote
-Git remote name used when PushToGitHub is set. Default is origin.
+Git remote name used unless DisableGitPush is set. Default is origin.
 
 .PARAMETER GitBranch
-Git branch name used when PushToGitHub is set. Default is main.
+Git branch name used unless DisableGitPush is set. Default is main.
 
 .PARAMETER CommitMessage
-Commit message used when PushToGitHub is set and changes are detected.
+Commit message used unless DisableGitPush is set and changes are detected.
 
 .EXAMPLE
 .\Build-CuratedBlocklist.ps1
 
 .EXAMPLE
-.\Build-CuratedBlocklist.ps1 -SourcesFile .\PiHoleBlocklistSources.txt -OutputFile .\CuratedBlocklist.txt
+.\Build-CuratedBlocklist.ps1 -SourcesFile .\PiHoleListSources.txt -OutputFile .\CuratedBlackList.txt
 
 .EXAMPLE
-.\Build-CuratedBlocklist.ps1 -OutputFile .\CuratedBlocklist.txt -WhitelistOutputFile .\CuratedWhilelist.txt
+.\Build-CuratedBlocklist.ps1 -OutputFile .\CuratedBlackList.txt -WhitelistOutputFile .\CuratedWhilelist.txt
 
 .EXAMPLE
-.\Build-CuratedBlocklist.ps1 -PushToGitHub
+.\Build-CuratedBlocklist.ps1
 
 .EXAMPLE
-.\Build-CuratedBlocklist.ps1 -PushToGitHub -GitRemote origin -GitBranch main -CommitMessage "Refresh curated blocklist"
+.\Build-CuratedBlocklist.ps1 -DisableGitPush
+
+.EXAMPLE
+.\Build-CuratedBlocklist.ps1 -GitRemote origin -GitBranch main -CommitMessage "Refresh curated blocklist"
 
 .NOTES
 Requires internet access for URL based sources.
@@ -74,7 +76,7 @@ Git push flow requires git to be installed and the script to run inside a git re
 Use -WhatIf to preview write and push actions without making changes.
 #>
 
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [string]$SourcesFile = (Join-Path $PSScriptRoot 'PiHoleListSources.txt'),
     [string]$OutputFile = (Join-Path $PSScriptRoot 'CuratedBlackList.txt'),
@@ -82,12 +84,12 @@ param(
     [int]$TimeoutSec = 60,
     [int]$RetryCount = 3,
     [int]$RetryDelaySec = 2,
-    [switch]$FailOnSourceError,
+    [bool]$FailOnSourceError = $false,
     [string]$FailedSourcesLogFile = (Join-Path $PSScriptRoot 'FailedSources.txt'),
-    [bool]$PushToGitHub = $true,
+    [switch]$DisableGitPush,
     [string]$GitRemote = 'origin',
     [string]$GitBranch = 'main',
-    [string]$CommitMessage = ("Update CuratedBlocklist.txt " + (Get-Date -Format 'yyyy-MM-dd'))
+    [string]$CommitMessage = ("Update CuratedBlackList.txt " + (Get-Date -Format 'yyyy-MM-dd'))
 )
 
 $ErrorActionPreference = 'Stop'
@@ -207,6 +209,7 @@ function Invoke-WebRequestWithRetry {
 }
 
 function Push-FilesToGitHub {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory)]
         [string[]]$FilePaths,
@@ -254,6 +257,10 @@ function Push-FilesToGitHub {
 
     $targetFiles = ($relativePaths -join ', ')
 
+    if (-not $PSCmdlet.ShouldProcess($targetFiles, "Stage, commit, and push to $Remote/$Branch")) {
+        return
+    }
+
     & git -C $repoRoot add -- @($relativePaths)
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to stage files: $targetFiles"
@@ -281,7 +288,9 @@ function Push-FilesToGitHub {
 if (Test-Path -Path $OutputFile -PathType Leaf) {
     Write-Host "Existing output file found. Deleting: $OutputFile"
 
-    Remove-Item -Path $OutputFile -Force
+    if ($PSCmdlet.ShouldProcess($OutputFile, 'Delete existing output file')) {
+        Remove-Item -Path $OutputFile -Force
+    }
 
     if (-not (Test-Path -Path $OutputFile -PathType Leaf)) {
         Write-Host 'Verified output file deletion.'
@@ -298,7 +307,9 @@ if ($WhitelistOutputFile) {
     if (Test-Path -Path $WhitelistOutputFile -PathType Leaf) {
         Write-Host "Existing whitelist output file found. Deleting: $WhitelistOutputFile"
 
-        Remove-Item -Path $WhitelistOutputFile -Force
+        if ($PSCmdlet.ShouldProcess($WhitelistOutputFile, 'Delete existing whitelist file')) {
+            Remove-Item -Path $WhitelistOutputFile -Force
+        }
 
         if (-not (Test-Path -Path $WhitelistOutputFile -PathType Leaf)) {
             Write-Host 'Verified whitelist output file deletion.'
@@ -316,7 +327,9 @@ if ($FailedSourcesLogFile) {
     if (Test-Path -Path $FailedSourcesLogFile -PathType Leaf) {
         Write-Host "Existing failed source log found. Deleting: $FailedSourcesLogFile"
 
-        Remove-Item -Path $FailedSourcesLogFile -Force
+        if ($PSCmdlet.ShouldProcess($FailedSourcesLogFile, 'Delete existing failed source log')) {
+            Remove-Item -Path $FailedSourcesLogFile -Force
+        }
 
         if (-not (Test-Path -Path $FailedSourcesLogFile -PathType Leaf)) {
             Write-Host 'Verified failed source log deletion.'
@@ -427,10 +440,12 @@ if ($destinationFolder -and -not (Test-Path -Path $destinationFolder -PathType C
     New-Item -Path $destinationFolder -ItemType Directory -Force | Out-Null
 }
 
- $tempFile = Join-Path -Path $destinationFolder -ChildPath ("curated-temp-" + [guid]::NewGuid().ToString() + ".txt")
+$tempFile = Join-Path -Path $destinationFolder -ChildPath ("curated-temp-" + [guid]::NewGuid().ToString() + ".txt")
 try {
-    $curated | Set-Content -Path $tempFile -Encoding UTF8
-    Move-Item -Path $tempFile -Destination $OutputFile -Force
+    if ($PSCmdlet.ShouldProcess($OutputFile, 'Write curated blocklist output')) {
+        $curated | Set-Content -Path $tempFile -Encoding UTF8
+        Move-Item -Path $tempFile -Destination $OutputFile -Force
+    }
 }
 finally {
     if (Test-Path -Path $tempFile -PathType Leaf) {
@@ -448,8 +463,10 @@ if ($whitelistDestinationFolder -and -not (Test-Path -Path $whitelistDestination
 
 $tempWhitelistFile = Join-Path -Path $whitelistDestinationFolder -ChildPath ("curated-whitelist-temp-" + [guid]::NewGuid().ToString() + ".txt")
 try {
-    $curatedWhitelist | Set-Content -Path $tempWhitelistFile -Encoding UTF8
-    Move-Item -Path $tempWhitelistFile -Destination $WhitelistOutputFile -Force
+    if ($PSCmdlet.ShouldProcess($WhitelistOutputFile, 'Write curated whitelist output')) {
+        $curatedWhitelist | Set-Content -Path $tempWhitelistFile -Encoding UTF8
+        Move-Item -Path $tempWhitelistFile -Destination $WhitelistOutputFile -Force
+    }
 }
 finally {
     if (Test-Path -Path $tempWhitelistFile -PathType Leaf) {
@@ -463,10 +480,12 @@ if ($FailedSourcesLogFile) {
         New-Item -Path $failedLogFolder -ItemType Directory -Force | Out-Null
     }
 
-    $failedSources | Set-Content -Path $FailedSourcesLogFile -Encoding UTF8
+    if ($PSCmdlet.ShouldProcess($FailedSourcesLogFile, 'Write failed sources log')) {
+        $failedSources | Set-Content -Path $FailedSourcesLogFile -Encoding UTF8
+    }
 }
 
-if ($PushToGitHub) {
+if (-not $DisableGitPush) {
     $filesToPush = [System.Collections.Generic.List[string]]::new()
     [void]$filesToPush.Add($OutputFile)
     [void]$filesToPush.Add($WhitelistOutputFile)

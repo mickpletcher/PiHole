@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD036 MD040 MD060 -->
+
 # Pi-hole Blocklist Collection
 
 A curated collection of 57 blocklist sources for Pi-hole. Covers advertising, tracking, telemetry, malicious domains, phishing, scams, fake news, stalkerware, piracy, CNAME cloaking, smart TV tracking, and more. All lists are sourced from well-maintained community and security projects.
@@ -23,10 +25,11 @@ It is a file at `/etc/pihole/gravity.db` on your Pi-hole device. The import scri
 
 | File | Description |
 |------|-------------|
-| `PiHoleBlocklistSources.txt` | Plain text file containing all 57 blocklist URLs, one per line |
+| `PiHoleListSources.txt` | Plain text file containing all source list URLs, one per line |
 | `CountryGeoFencing.txt` | List of countries used to configure geo-fencing DNS blocks |
 | `Build-CuratedBlocklist.ps1` | PowerShell script that downloads all source lists, extracts domains, sorts, and de-duplicates output |
-| `CuratedBlocklist.txt` | Generated output file produced by Build-CuratedBlocklist.ps1 |
+| `CuratedBlackList.txt` | Generated blocklist output file produced by Build-CuratedBlocklist.ps1 |
+| `CuratedWhilelist.txt` | Generated whitelist output file produced by Build-CuratedBlocklist.ps1 |
 | `FailedSources.txt` | Generated run log file produced by Build-CuratedBlocklist.ps1 listing failed source URLs (can be blank) |
 | `Import-PiHoleBlocklists.ps1` | PowerShell script to bulk import all lists into Pi-hole's gravity database |
 | `import_pihole_blocklists.py` | Python script to bulk import all lists into Pi-hole's gravity database |
@@ -35,7 +38,7 @@ It is a file at `/etc/pihole/gravity.db` on your Pi-hole device. The import scri
 
 ## Quick Start
 
-The two import scripts do the same thing — they read this repository's `PiHoleBlocklistSources.txt` file and add every URL in it to your Pi-hole. Choose whichever language you prefer or have available.
+The two import scripts do the same thing — they read this repository's `PiHoleListSources.txt` file and add every URL in it to your Pi-hole. Choose whichever language you prefer or have available.
 
 > **Important:** These scripts must be run on the Pi-hole device itself, not on your personal Windows or Mac computer. Connect to your Pi-hole over SSH first (see the Key Concepts section in the main [README](../README.md) if you are not sure how to do this).
 
@@ -96,7 +99,7 @@ sudo python3 import_pihole_blocklists.py
 
 **What both scripts do:**
 
-- Download `PiHoleBlocklistSources.txt` directly from this GitHub repository
+- Download `PiHoleListSources.txt` directly from this GitHub repository
 - Insert each URL into Pi-hole's gravity database
 - Skip any URLs that are already in the database (safe to run more than once)
 - Run `pihole -g` automatically at the end to update gravity and activate the new lists
@@ -108,17 +111,21 @@ The import itself takes a few seconds. The gravity update at the end can take 1 
 
 ## Build a Curated Domain List
 
-Use `Build-CuratedBlocklist.ps1` when you want one de-duplicated domain file generated from all URLs listed in `PiHoleBlocklistSources.txt`.
+Use `Build-CuratedBlocklist.ps1` when you want de-duplicated domain files generated from all URLs listed in `PiHoleListSources.txt`.
 
 What it does:
 
 - Reads source URLs from GitHub or a local source file
 - Downloads each source list with retry logic
 - Extracts domains from common hosts and adblock style formats
-- Sorts and de-duplicates domains
-- Writes output to `CuratedBlocklist.txt` using atomic replace
+- Separates blocklist and whitelist sources automatically
+- Sorts and de-duplicates domains for each output
+- Writes output to `CuratedBlackList.txt` using atomic replace
+- Writes whitelist output to `CuratedWhilelist.txt` using atomic replace
 - Always writes `FailedSources.txt` for the run (blank when there are no failures)
-- Optionally stages, commits, and pushes both output files to GitHub (`CuratedBlocklist.txt` and `FailedSources.txt`)
+- Deletes previous generated output files before each run and verifies deletion on screen
+- Shows download progress counters such as `1 of 56`
+- Optionally stages, commits, and pushes all generated output files to GitHub (`CuratedBlackList.txt`, `CuratedWhilelist.txt`, and `FailedSources.txt`)
 
 Examples:
 
@@ -130,10 +137,10 @@ Examples:
 .\Build-CuratedBlocklist.ps1 -FailOnSourceError -FailedSourcesLogFile .\FailedSources.txt
 
 # Build and push to GitHub
-.\Build-CuratedBlocklist.ps1 -PushToGitHub
+.\Build-CuratedBlocklist.ps1
 
-# Preview write and push actions without changing anything
-.\Build-CuratedBlocklist.ps1 -PushToGitHub -WhatIf
+# Disable push for a local-only run
+.\Build-CuratedBlocklist.ps1 -DisableGitPush
 ```
 
 ---
@@ -144,8 +151,8 @@ Examples:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `-BlocklistUrl` | GitHub raw URL | URL to the remote `PiHoleBlocklistSources.txt` file |
-| `-LocalFile` | _(none)_ | Path to a local `PiHoleBlocklistSources.txt` — skips download if provided |
+| `-BlocklistUrl` | GitHub raw URL | URL to the remote `PiHoleListSources.txt` file |
+| `-LocalFile` | _(none)_ | Path to a local `PiHoleListSources.txt` — skips download if provided |
 | `-GravityDb` | `/etc/pihole/gravity.db` | Path to Pi-hole's gravity database |
 | `-SkipGravityUpdate` | `false` | If set, skips running `pihole -g` after inserting |
 
@@ -156,7 +163,7 @@ Examples:
 sudo pwsh ./Import-PiHoleBlocklists.ps1
 
 # Use a local file
-sudo pwsh ./Import-PiHoleBlocklists.ps1 -LocalFile ./PiHoleBlocklistSources.txt
+sudo pwsh ./Import-PiHoleBlocklists.ps1 -LocalFile ./PiHoleListSources.txt
 
 # Import without updating gravity
 sudo pwsh ./Import-PiHoleBlocklists.ps1 -SkipGravityUpdate
@@ -166,8 +173,8 @@ sudo pwsh ./Import-PiHoleBlocklists.ps1 -SkipGravityUpdate
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--blocklist-url` | GitHub raw URL | URL to the remote `PiHoleBlocklistSources.txt` file |
-| `--local-file` | _(none)_ | Path to a local `PiHoleBlocklistSources.txt` — skips download if provided |
+| `--blocklist-url` | GitHub raw URL | URL to the remote `PiHoleListSources.txt` file |
+| `--local-file` | _(none)_ | Path to a local `PiHoleListSources.txt` — skips download if provided |
 | `--gravity-db` | `/etc/pihole/gravity.db` | Path to Pi-hole's gravity database |
 | `--skip-gravity-update` | `false` | If set, skips running `pihole -g` after inserting |
 
@@ -178,7 +185,7 @@ sudo pwsh ./Import-PiHoleBlocklists.ps1 -SkipGravityUpdate
 sudo python3 import_pihole_blocklists.py
 
 # Use a local file
-sudo python3 import_pihole_blocklists.py --local-file ./PiHoleBlocklistSources.txt
+sudo python3 import_pihole_blocklists.py --local-file ./PiHoleListSources.txt
 
 # Import without updating gravity
 sudo python3 import_pihole_blocklists.py --skip-gravity-update
@@ -206,7 +213,7 @@ In the left menu, click **Group Management**, then click **Adlists**.
 
 **Step 3 — Add a list**
 
-Open `PiHoleBlocklistSources.txt` from this repository. Copy one URL, paste it into the **Address** field in the admin panel, optionally add a comment to remind yourself what the list is for, and click **Add**. Repeat for each URL you want to add.
+Open `PiHoleListSources.txt` from this repository. Copy one URL, paste it into the **Address** field in the admin panel, optionally add a comment to remind yourself what the list is for, and click **Add**. Repeat for each URL you want to add.
 
 **Step 4 — Update Gravity**
 
@@ -372,3 +379,5 @@ Notable projects included in this collection:
 - [Disconnect.me](https://disconnect.me) — Simple ad and tracking lists
 - [CyberHost](https://lists.cyberhost.uk) — Malware list
 - [malware-filter](https://gitlab.com/malware-filter) — Phishing filter hosts
+
+<!-- markdownlint-enable MD036 MD040 MD060 -->
