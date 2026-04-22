@@ -2,7 +2,7 @@
 
 # Pi-hole Blocklist Collection
 
-A curated collection of 57 blocklist sources for Pi-hole. Covers advertising, tracking, telemetry, malicious domains, phishing, scams, fake news, stalkerware, piracy, CNAME cloaking, smart TV tracking, and more. All lists are sourced from well-maintained community and security projects.
+A curated collection of 65 blocklist sources for Pi-hole. Covers advertising, tracking, telemetry, malicious domains, phishing, scams, fake news, stalkerware, piracy, CNAME cloaking, smart TV tracking, and more. All lists are sourced from well-maintained community and security projects.
 
 > **Disclaimer:** This is a personal curated index of community blocklist sources. No blocklist is perfect. Review before deploying on production networks.
 

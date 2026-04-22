@@ -1,6 +1,7 @@
 *.csv
 logs/
 .vscode/
+upgrades/future-upgrades.md
 Set-PiHoleSecretEnv.local.ps1
 Clear-PiHoleSecretEnv.local.ps1
 PiHoleSudoPassword.local.txt
