@@ -76,30 +76,6 @@ Python is a programming language. Scripts with a `.py` extension are Python scri
 
 ---
 
-## GitHub Spec Kit Workflow
-
-This repository now includes the official GitHub [Spec Kit](https://github.com/github/spec-kit) scaffolding for GitHub Copilot under `.github/` and `.specify/`.
-
-Use it when you want to add or change behavior in a structured way:
-
-```text
-/speckit.constitution
-/speckit.specify
-/speckit.clarify
-/speckit.plan
-/speckit.tasks
-/speckit.analyze
-/speckit.implement
-```
-
-Project-specific rules for spec-driven work live in `.specify/memory/constitution.md`. For this repo, the most important guardrails are: keep PowerShell as the first-class operator experience, default to safe/read-only Pi-hole behavior unless a change is explicitly intended, never commit secrets or host-specific local files, and update documentation with operator-facing workflow changes.
-
-When using GitHub Copilot with this repo, the generated prompt files in `.github/prompts/` and agent files in `.github/agents/` provide the Spec Kit workflow, while `.github/copilot-instructions.md` points Copilot to the constitution and active spec/plan files.
-
-Completed shared project upgrades are tracked in [upgrades/README.md](upgrades/README.md).
-
----
-
 To export allowed DNS queries from the Pi-hole long-term database over SSH, run:
 
 ```powershell
