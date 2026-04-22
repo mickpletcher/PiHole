@@ -52,7 +52,7 @@ Python is a programming language. Scripts with a `.py` extension are Python scri
 
 | Folder / File | What It Contains |
 |---------------|-----------------|
-| `Lists/` | A collection of 57 blocklist sources, import scripts, generated outputs, and setup instructions |
+| `Lists/` | A collection of 65 blocklist sources, import scripts, generated outputs, and setup instructions |
 | `Lists/README.md` | Step-by-step instructions for adding the lists and generating curated outputs |
 | `Lists/PiHoleListSources.txt` | A plain text file with all source list URLs, one per line |
 | `Lists/CountryGeoFencing.txt` | A list of countries used to configure geo-fencing DNS blocks |
@@ -66,7 +66,12 @@ Python is a programming language. Scripts with a `.py` extension are Python scri
 | `Export-PiHoleAllowedQueries.ps1` | A PowerShell script that connects to Pi-hole over SSH and exports allowed DNS queries to `allowed_only_queries.csv` |
 | `Export-PiHoleBlockedQueries.ps1` | A PowerShell script that connects to Pi-hole over SSH and exports blocked DNS queries to `blocked_only_queries.csv` |
 | `Export-PiHoleQueries.ps1` | A PowerShell wrapper that runs both query export scripts in one pass |
+| `Invoke-ScheduledExport.ps1` | A PowerShell script that runs the full export workflow and writes a timestamped log file under `logs/` |
+| `New-ExportScheduledTask.ps1` | A PowerShell script that creates a Windows Scheduled Task using the ScheduledTasks module |
+| `Setup-ExportSchedule.ps1` | A PowerShell script that creates a Windows scheduled task using `schtasks.exe` |
+| `PiHole.Common.ps1` | A shared PowerShell helper script for SSH execution, credential lookup, logging, and query export plumbing |
 | `Remove-DuplicateCsvRows.ps1` | A PowerShell script that removes column 1 and de-duplicates very large CSV files by key columns |
+| `upgrades/README.md` | A tracked record of completed shared project upgrades |
 | `.gitignore` | Git ignore rules that exclude local generated outputs, logs, editor settings, and secret helper files from commits and pushes |
 
 ---
@@ -91,6 +96,8 @@ Project-specific rules for spec-driven work live in `.specify/memory/constitutio
 
 When using GitHub Copilot with this repo, the generated prompt files in `.github/prompts/` and agent files in `.github/agents/` provide the Spec Kit workflow, while `.github/copilot-instructions.md` points Copilot to the constitution and active spec/plan files.
 
+Completed shared project upgrades are tracked in [upgrades/README.md](upgrades/README.md).
+
 ---
 
 To export allowed DNS queries from the Pi-hole long-term database over SSH, run:
@@ -114,7 +121,8 @@ Local artifact rules for this repo:
 - `*.csv` export inputs and outputs are local working files and are ignored by Git.
 - `logs/` contains local export run logs and is ignored by Git.
 - `.vscode/` is treated as machine-local workspace state and is ignored by Git.
-- Secret helper files such as `Set-PiHoleSecretEnv.local.ps1`, `Clear-PiHoleSecretEnv.local.ps1`, and `PiHoleSudoPassword.local.txt` are intentionally local and ignored by Git.
+- `upgrades/future-upgrades.md` is a local planning file and is ignored by Git, while `upgrades/README.md` is tracked.
+- Secret helper files such as `Set-PiHoleSecretEnv.local.ps1`, `Clear-PiHoleSecretEnv.local.ps1`, `PiHoleSudoPassword.local.txt`, and `PiHoleSshPassword.local.txt` are intentionally local and ignored by Git.
 - If you ever need to share an ignored artifact for troubleshooting, you can include it intentionally with `git add -f <path>`, but do that only after checking it does not contain secrets or host-specific data.
 
 If you clone this repository on a new machine, create the local env var scripts again because they are intentionally not pushed to GitHub.
@@ -125,9 +133,12 @@ If you clone this repository on a new machine, create the local env var scripts 
 Set-PiHoleSecretEnv.local.ps1
 Clear-PiHoleSecretEnv.local.ps1
 PiHoleSudoPassword.local.txt
+PiHoleSshPassword.local.txt
 ```
 
-1. Create `PiHoleSudoPassword.local.txt` in the repository root with your Pi-hole sudo password on a single line.
+1. Create `PiHoleSshPassword.local.txt` in the repository root with your Pi-hole SSH password on a single line if you want file-based SSH password lookup.
+
+1. Create `PiHoleSudoPassword.local.txt` in the repository root with your Pi-hole sudo password on a single line if it differs from the SSH password.
 
 1. Create `Set-PiHoleSecretEnv.local.ps1` in the repository root with this content:
 
@@ -137,12 +148,31 @@ param(
 
    [string]$PiHoleUserName = 'root',
 
-   [string]$IdentityFile = '',
+   [string]$IdentityFile = 'C:\Users\mick0\.ssh\pihole_ed25519',
 
    [string]$SshPassword,
 
+   [string]$SshPasswordFilePath,
+
    [string]$SudoPassword
 )
+
+$scriptDirectory = if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) { (Get-Location).Path } else { $PSScriptRoot }
+
+if ([string]::IsNullOrWhiteSpace($SshPasswordFilePath)) {
+   $defaultSshPasswordFilePath = Join-Path $scriptDirectory 'PiHoleSshPassword.local.txt'
+   $legacySharedPasswordFilePath = Join-Path $scriptDirectory 'PiHoleSudoPassword.local.txt'
+
+   if (Test-Path -LiteralPath $defaultSshPasswordFilePath -PathType Leaf) {
+      $SshPasswordFilePath = $defaultSshPasswordFilePath
+   }
+   elseif (Test-Path -LiteralPath $legacySharedPasswordFilePath -PathType Leaf) {
+      $SshPasswordFilePath = $legacySharedPasswordFilePath
+   }
+}
+elseif (-not [System.IO.Path]::IsPathRooted($SshPasswordFilePath)) {
+   $SshPasswordFilePath = Join-Path $scriptDirectory $SshPasswordFilePath
+}
 
 $env:PIHOLE_HOST = $PiHoleHost
 $env:PIHOLE_USERNAME = $PiHoleUserName
@@ -167,15 +197,27 @@ function Convert-SecureStringToPlainText {
 }
 
 if ([string]::IsNullOrWhiteSpace($SshPassword)) {
-   $sshSecurePassword = Read-Host 'Enter Pi-hole SSH password' -AsSecureString
-
-   try {
-      $env:PIHOLE_SSH_PASSWORD = Convert-SecureStringToPlainText -SecureString $sshSecurePassword
-   }
-   finally {
-      if ($null -ne $sshSecurePassword) {
-         $sshSecurePassword.Dispose()
+   if (-not [string]::IsNullOrWhiteSpace($SshPasswordFilePath) -and (Test-Path -LiteralPath $SshPasswordFilePath -PathType Leaf)) {
+      $filePassword = (Get-Content -LiteralPath $SshPasswordFilePath -Raw).Trim()
+      if (-not [string]::IsNullOrWhiteSpace($filePassword)) {
+         $SshPassword = $filePassword
       }
+   }
+
+   if ([string]::IsNullOrWhiteSpace($SshPassword)) {
+      $sshSecurePassword = Read-Host 'Enter Pi-hole SSH password' -AsSecureString
+
+      try {
+         $env:PIHOLE_SSH_PASSWORD = Convert-SecureStringToPlainText -SecureString $sshSecurePassword
+      }
+      finally {
+         if ($null -ne $sshSecurePassword) {
+            $sshSecurePassword.Dispose()
+         }
+      }
+   }
+   else {
+      $env:PIHOLE_SSH_PASSWORD = $SshPassword
    }
 }
 else {
@@ -191,22 +233,7 @@ if ($PSBoundParameters.ContainsKey('SudoPassword')) {
    }
 }
 else {
-   $sudoSecurePassword = Read-Host 'Enter Pi-hole sudo password or press Enter to reuse the SSH password' -AsSecureString
-
-   try {
-      $sudoPasswordText = Convert-SecureStringToPlainText -SecureString $sudoSecurePassword
-      if ([string]::IsNullOrEmpty($sudoPasswordText)) {
-         $env:PIHOLE_SUDO_PASSWORD = $env:PIHOLE_SSH_PASSWORD
-      }
-      else {
-         $env:PIHOLE_SUDO_PASSWORD = $sudoPasswordText
-      }
-   }
-   finally {
-      if ($null -ne $sudoSecurePassword) {
-         $sudoSecurePassword.Dispose()
-      }
-   }
+   $env:PIHOLE_SUDO_PASSWORD = $env:PIHOLE_SSH_PASSWORD
 }
 
 Write-Host 'Pi-hole SSH environment variables are set for this PowerShell session.'
@@ -241,6 +268,12 @@ You can also predefine passwords in parameters:
 
 ```powershell
 .\Set-PiHoleSecretEnv.local.ps1 -SshPassword 'your-ssh-password'
+```
+
+Or point the script at a custom SSH password file:
+
+```powershell
+.\Set-PiHoleSecretEnv.local.ps1 -SshPasswordFilePath 'C:\path\to\PiHoleSshPassword.local.txt'
 ```
 
 If your sudo password file is in a different location, pass it to the wrapper explicitly:
@@ -412,7 +445,7 @@ To access it:
 
 It might seem like more blocklists equals more protection, but there is a point of diminishing returns. Too many overlapping lists can slow down Pi-hole's gravity update process and use more memory on your device without meaningfully improving coverage.
 
-The 57 lists in this collection have been carefully selected to give broad coverage across ads, tracking, malware, and other threats while avoiding excessive overlap. Stick with what is here unless you have a specific need for something additional.
+The 65 lists in this collection have been carefully selected to give broad coverage across ads, tracking, malware, and other threats while avoiding excessive overlap. Stick with what is here unless you have a specific need for something additional.
 
 ---
 

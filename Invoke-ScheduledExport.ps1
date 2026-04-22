@@ -5,8 +5,15 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $scriptRoot = Split-Path -Path $PSCommandPath -Parent
+$commonScriptPath = Join-Path $scriptRoot 'PiHole.Common.ps1'
 $exportScript = Join-Path $scriptRoot 'Export-PiHoleQueries.ps1'
 $logDir = Join-Path $scriptRoot 'logs'
+
+if (-not (Test-Path -LiteralPath $commonScriptPath -PathType Leaf)) {
+    throw "Required script not found: $commonScriptPath"
+}
+
+. $commonScriptPath
 
 if (-not (Test-Path -LiteralPath $logDir -PathType Container)) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
@@ -23,9 +30,9 @@ try {
     $endTime = Get-Date
     $duration = $endTime - $startTime
     
-    "Export completed successfully in $($duration.TotalSeconds)s at $(Get-Date -Format 'o')" | Add-Content -LiteralPath $logFile
+    Write-PiHoleFileLog -Path $logFile -Level INFO -Message "Export completed successfully in $($duration.TotalSeconds)s seconds."
 }
 catch {
-    "Export failed at $(Get-Date -Format 'o'): $_" | Add-Content -LiteralPath $logFile
+    Write-PiHoleFileLog -Path $logFile -Level ERROR -Message "Export failed: $($_.Exception.Message)"
     throw
 }
