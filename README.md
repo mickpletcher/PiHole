@@ -63,10 +63,210 @@ Python is a programming language. Scripts with a `.py` extension are Python scri
 | `Lists/Import-PiHoleBlocklists.ps1` | A PowerShell script that automatically adds all source list URLs to Pi-hole |
 | `Lists/import_pihole_blocklists.py` | A Python script that does the same thing as above |
 | `Get-PiHoleConfig.ps1` | A PowerShell script that pulls Pi-hole v6 configuration and summary data to a sanitized JSON file for review or troubleshooting |
+| `Export-PiHoleAllowedQueries.ps1` | A PowerShell script that connects to Pi-hole over SSH and exports allowed DNS queries to `allowed_only_queries.csv` |
+| `Export-PiHoleBlockedQueries.ps1` | A PowerShell script that connects to Pi-hole over SSH and exports blocked DNS queries to `blocked_only_queries.csv` |
+| `Export-PiHoleQueries.ps1` | A PowerShell wrapper that runs both query export scripts in one pass |
 | `Remove-DuplicateCsvRows.ps1` | A PowerShell script that removes column 1 and de-duplicates very large CSV files by key columns |
 | `.gitignore` | Git ignore rules that exclude local CSV data files from commits and pushes |
 
 ---
+
+## GitHub Spec Kit Workflow
+
+This repository now includes the official GitHub [Spec Kit](https://github.com/github/spec-kit) scaffolding for GitHub Copilot under `.github/` and `.specify/`.
+
+Use it when you want to add or change behavior in a structured way:
+
+```text
+/speckit.constitution
+/speckit.specify
+/speckit.clarify
+/speckit.plan
+/speckit.tasks
+/speckit.analyze
+/speckit.implement
+```
+
+Project-specific rules for spec-driven work live in `.specify/memory/constitution.md`. For this repo, the most important guardrails are: keep PowerShell as the first-class operator experience, default to safe/read-only Pi-hole behavior unless a change is explicitly intended, never commit secrets or host-specific local files, and update documentation with operator-facing workflow changes.
+
+When using GitHub Copilot with this repo, the generated prompt files in `.github/prompts/` and agent files in `.github/agents/` provide the Spec Kit workflow, while `.github/copilot-instructions.md` points Copilot to the constitution and active spec/plan files.
+
+---
+
+To export allowed DNS queries from the Pi-hole long-term database over SSH, run:
+
+```powershell
+.\Export-PiHoleAllowedQueries.ps1
+```
+
+These scripts default to `root@192.168.0.225` and stream the CSV straight back to Windows, so you do not need to create a `/tmp` file and copy it with `scp` unless you want to.
+
+If you want to avoid the interactive SSH password prompt, run [Set-PiHoleSecretEnv.local.ps1](Set-PiHoleSecretEnv.local.ps1) first in the same PowerShell window. That script is ignored by git and sets `PIHOLE_HOST`, `PIHOLE_USERNAME`, and `PIHOLE_SSH_PASSWORD` for the export scripts. Password based env var auth uses the `Posh-SSH` module.
+
+For sudo, [Export-PiHoleQueries.ps1](Export-PiHoleQueries.ps1) now supports a local password file named `PiHoleSudoPassword.local.txt` in the repository root. Put the sudo password on one line in that file. The wrapper checks values in this order: `-SudoPassword` parameter, `PIHOLE_SUDO_PASSWORD` env var, `PiHoleSudoPassword.local.txt`, then SSH password fallback.
+
+The query export scripts now try `sqlite3`, `sudo sqlite3`, `pihole-FTL sqlite3`, and `sudo pihole-FTL sqlite3` in that order. They also use non login shells for remote execution so LXC login banners do not pollute the CSV output.
+
+When you are done, run [Clear-PiHoleSecretEnv.local.ps1](Clear-PiHoleSecretEnv.local.ps1) in the same PowerShell window to remove those env vars from the current session.
+
+If you clone this repository on a new machine, create the local env var scripts again because they are intentionally not pushed to GitHub.
+
+1. Add these lines to `.gitignore` if they are missing:
+
+```text
+Set-PiHoleSecretEnv.local.ps1
+Clear-PiHoleSecretEnv.local.ps1
+PiHoleSudoPassword.local.txt
+```
+
+1. Create `PiHoleSudoPassword.local.txt` in the repository root with your Pi-hole sudo password on a single line.
+
+1. Create `Set-PiHoleSecretEnv.local.ps1` in the repository root with this content:
+
+```powershell
+param(
+   [string]$PiHoleHost = '192.168.0.225',
+
+   [string]$PiHoleUserName = 'root',
+
+   [string]$IdentityFile = '',
+
+   [string]$SshPassword,
+
+   [string]$SudoPassword
+)
+
+$env:PIHOLE_HOST = $PiHoleHost
+$env:PIHOLE_USERNAME = $PiHoleUserName
+$env:PIHOLE_IDENTITY_FILE = $IdentityFile
+
+function Convert-SecureStringToPlainText {
+   param(
+      [Parameter(Mandatory = $true)]
+      [Security.SecureString]$SecureString
+   )
+
+   $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)
+
+   try {
+      return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+   }
+   finally {
+      if ($bstr -ne [IntPtr]::Zero) {
+         [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+      }
+   }
+}
+
+if ([string]::IsNullOrWhiteSpace($SshPassword)) {
+   $sshSecurePassword = Read-Host 'Enter Pi-hole SSH password' -AsSecureString
+
+   try {
+      $env:PIHOLE_SSH_PASSWORD = Convert-SecureStringToPlainText -SecureString $sshSecurePassword
+   }
+   finally {
+      if ($null -ne $sshSecurePassword) {
+         $sshSecurePassword.Dispose()
+      }
+   }
+}
+else {
+   $env:PIHOLE_SSH_PASSWORD = $SshPassword
+}
+
+if ($PSBoundParameters.ContainsKey('SudoPassword')) {
+   if ([string]::IsNullOrEmpty($SudoPassword)) {
+      $env:PIHOLE_SUDO_PASSWORD = $env:PIHOLE_SSH_PASSWORD
+   }
+   else {
+      $env:PIHOLE_SUDO_PASSWORD = $SudoPassword
+   }
+}
+else {
+   $sudoSecurePassword = Read-Host 'Enter Pi-hole sudo password or press Enter to reuse the SSH password' -AsSecureString
+
+   try {
+      $sudoPasswordText = Convert-SecureStringToPlainText -SecureString $sudoSecurePassword
+      if ([string]::IsNullOrEmpty($sudoPasswordText)) {
+         $env:PIHOLE_SUDO_PASSWORD = $env:PIHOLE_SSH_PASSWORD
+      }
+      else {
+         $env:PIHOLE_SUDO_PASSWORD = $sudoPasswordText
+      }
+   }
+   finally {
+      if ($null -ne $sudoSecurePassword) {
+         $sudoSecurePassword.Dispose()
+      }
+   }
+}
+
+Write-Host 'Pi-hole SSH environment variables are set for this PowerShell session.'
+```
+
+1. Create `Clear-PiHoleSecretEnv.local.ps1` in the repository root with this content:
+
+```powershell
+$envVars = @(
+   'PIHOLE_HOST',
+   'PIHOLE_USERNAME',
+   'PIHOLE_IDENTITY_FILE',
+   'PIHOLE_SSH_PASSWORD',
+   'PIHOLE_SUDO_PASSWORD'
+)
+
+foreach ($envVar in $envVars) {
+   Remove-Item -Path "Env:$envVar" -ErrorAction SilentlyContinue
+}
+
+Write-Host 'Pi-hole SSH environment variables were cleared from this PowerShell session.'
+```
+
+1. Run the local env var setup script in your PowerShell session before running the export scripts:
+
+```powershell
+Install-Module Posh-SSH -Scope CurrentUser
+.\Set-PiHoleSecretEnv.local.ps1
+```
+
+You can also predefine passwords in parameters:
+
+```powershell
+.\Set-PiHoleSecretEnv.local.ps1 -SshPassword 'your-ssh-password'
+```
+
+If your sudo password file is in a different location, pass it to the wrapper explicitly:
+
+```powershell
+.\Export-PiHoleQueries.ps1 -SudoPasswordFilePath 'C:\path\to\PiHoleSudoPassword.local.txt'
+```
+
+To export blocked DNS queries over SSH, run:
+
+```powershell
+.\Export-PiHoleBlockedQueries.ps1
+```
+
+To export both allowed and blocked DNS queries in one run, use:
+
+```powershell
+.\Export-PiHoleQueries.ps1
+```
+
+If you want to limit the export window, for example to the last 7 days, run:
+
+```powershell
+.\Export-PiHoleAllowedQueries.ps1 -DaysBack 7
+```
+
+You can also filter by domain or client. Exact values match exactly. `*` and `?` work as wildcards:
+
+```powershell
+.\Export-PiHoleAllowedQueries.ps1 -DomainFilter 'peoplehub.xboxlive.com'
+.\Export-PiHoleAllowedQueries.ps1 -DomainFilter '*.xboxlive.com' -ClientFilter '192.168.0.184'
+.\Export-PiHoleBlockedQueries.ps1 -DaysBack 7 -ClientFilter '192.168.0.*'
+.\Export-PiHoleQueries.ps1 -DaysBack 7 -DomainFilter '*.xboxlive.com'
+```
 
 ## Getting Started
 

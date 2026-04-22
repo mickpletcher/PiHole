@@ -3,6 +3,10 @@ param(
 
     [string]$OutputPath,
 
+    [string[]]$IncludeFilePattern = @('*'),
+
+    [string[]]$ExcludeFilePattern = @('*.deduped.csv'),
+
     [string]$Delimiter = ',',
 
     [int[]]$KeyColumns = @(2, 3, 4)
@@ -13,31 +17,14 @@ $ErrorActionPreference = 'Stop'
 
 $scriptDirectory = if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) { (Get-Location).Path } else { $PSScriptRoot }
 
-if ([string]::IsNullOrWhiteSpace($InputPath)) {
-    $csvFiles = @(Get-ChildItem -LiteralPath $scriptDirectory -Filter '*.csv' -File | Sort-Object Name)
-    if ($csvFiles.Count -eq 0) {
-        throw "No CSV file found in script directory: $scriptDirectory"
-    }
-
-    if ($csvFiles.Count -gt 1) {
-        $names = ($csvFiles.Name -join ', ')
-        throw "Multiple CSV files found in script directory. Specify -InputPath explicitly. Files: $names"
-    }
-
-    $InputPath = $csvFiles[0].FullName
-}
-
-if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    $inputItem = Get-Item -LiteralPath $InputPath
-    $baseName = [System.IO.Path]::GetFileNameWithoutExtension($inputItem.Name)
-    $OutputPath = Join-Path $inputItem.DirectoryName ($baseName + '.deduped.csv')
-}
-
 function ConvertTo-CsvLine {
     param(
-        [Parameter(Mandatory = $true)]
         [string[]]$Fields
     )
+
+    if ($null -eq $Fields) {
+        $Fields = @('')
+    }
 
     $escaped = foreach ($field in $Fields) {
         $value = if ($null -eq $field) { '' } else { [string]$field }
@@ -66,10 +53,6 @@ function New-DedupeKey {
     return ($parts -join '|')
 }
 
-if (-not (Test-Path -LiteralPath $InputPath)) {
-    throw "Input CSV not found: $InputPath"
-}
-
 if ([string]::IsNullOrEmpty($Delimiter)) {
     throw 'Delimiter cannot be empty.'
 }
@@ -82,87 +65,199 @@ if ($KeyColumns | Where-Object { $_ -lt 1 }) {
     throw 'KeyColumns must be 1-based positive integers.'
 }
 
+if ($null -eq $IncludeFilePattern -or $IncludeFilePattern.Count -eq 0) {
+    throw 'IncludeFilePattern must contain at least one wildcard pattern.'
+}
+
+if ($IncludeFilePattern | Where-Object { [string]::IsNullOrWhiteSpace($_) }) {
+    throw 'IncludeFilePattern cannot contain blank values.'
+}
+
+if ($null -ne $ExcludeFilePattern -and ($ExcludeFilePattern | Where-Object { [string]::IsNullOrWhiteSpace($_) })) {
+    throw 'ExcludeFilePattern cannot contain blank values.'
+}
+
 Add-Type -AssemblyName Microsoft.VisualBasic
 
-$inputResolved = (Resolve-Path -LiteralPath $InputPath).Path
-$outputParent = Split-Path -Path $OutputPath -Parent
-if ($outputParent -and -not (Test-Path -LiteralPath $outputParent)) {
-    New-Item -ItemType Directory -Path $outputParent -Force | Out-Null
+function Get-DefaultOutputPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.IO.FileInfo]$InputItem
+    )
+
+    $baseName = [System.IO.Path]::GetFileNameWithoutExtension($InputItem.Name)
+    return (Join-Path $InputItem.DirectoryName ($baseName + '.deduped.csv'))
 }
 
-$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-$seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+function Invoke-DedupeCsvFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ResolvedInputPath,
 
-$rowsRead = 0L
-$rowsWritten = 0L
-$duplicatesSkipped = 0L
-$shortRowsSkipped = 0L
+        [Parameter(Mandatory = $true)]
+        [string]$ResolvedOutputPath
+    )
 
-$parser = [Microsoft.VisualBasic.FileIO.TextFieldParser]::new($inputResolved)
-$parser.TextFieldType = [Microsoft.VisualBasic.FileIO.FieldType]::Delimited
-$parser.SetDelimiters($Delimiter)
-$parser.HasFieldsEnclosedInQuotes = $true
-$parser.TrimWhiteSpace = $false
-
-$writer = [System.IO.StreamWriter]::new($OutputPath, $false, $utf8NoBom)
-
-try {
-    if ($parser.EndOfData) {
-        throw 'Input CSV is empty.'
+    $outputParent = Split-Path -Path $ResolvedOutputPath -Parent
+    if ($outputParent -and -not (Test-Path -LiteralPath $outputParent)) {
+        New-Item -ItemType Directory -Path $outputParent -Force | Out-Null
     }
 
-    $header = $parser.ReadFields()
-    if ($header.Count -lt 4) {
-        throw 'Input CSV must have at least 4 columns.'
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+
+    $rowsRead = 0L
+    $rowsWritten = 0L
+    $duplicatesSkipped = 0L
+    $shortRowsSkipped = 0L
+
+    $parser = [Microsoft.VisualBasic.FileIO.TextFieldParser]::new($ResolvedInputPath)
+    $parser.TextFieldType = [Microsoft.VisualBasic.FileIO.FieldType]::Delimited
+    $parser.SetDelimiters($Delimiter)
+    $parser.HasFieldsEnclosedInQuotes = $true
+    $parser.TrimWhiteSpace = $false
+
+    $writer = [System.IO.StreamWriter]::new($ResolvedOutputPath, $false, $utf8NoBom)
+
+    try {
+        if ($parser.EndOfData) {
+            throw 'Input CSV is empty.'
+        }
+
+        $header = $parser.ReadFields()
+        if ($header.Count -lt 4) {
+            throw 'Input CSV must have at least 4 columns.'
+        }
+
+        $maxKeyColumn = ($KeyColumns | Measure-Object -Maximum).Maximum
+        if ($maxKeyColumn -gt $header.Count) {
+            throw "KeyColumns contains index $maxKeyColumn but CSV only has $($header.Count) columns."
+        }
+
+        $headerWithoutCol1 = if ($header.Count -eq 1) { @() } else { $header[1..($header.Count - 1)] }
+        $writer.WriteLine((ConvertTo-CsvLine -Fields $headerWithoutCol1))
+
+        while (-not $parser.EndOfData) {
+            $fields = $parser.ReadFields()
+            $rowsRead++
+
+            $hasAnyContent = $false
+            foreach ($field in $fields) {
+                if (-not [string]::IsNullOrWhiteSpace([string]$field)) {
+                    $hasAnyContent = $true
+                    break
+                }
+            }
+
+            if (-not $hasAnyContent) {
+                $shortRowsSkipped++
+                continue
+            }
+
+            if ($fields.Count -lt 4) {
+                $shortRowsSkipped++
+                continue
+            }
+
+            if ($fields.Count -lt $maxKeyColumn) {
+                $shortRowsSkipped++
+                continue
+            }
+
+            $keyValues = foreach ($col in $KeyColumns) {
+                $fields[$col - 1]
+            }
+
+            $key = New-DedupeKey -Values $keyValues
+            if ($seen.Add($key)) {
+                $outFields = $fields[1..($fields.Count - 1)]
+                $writer.WriteLine((ConvertTo-CsvLine -Fields $outFields))
+                $rowsWritten++
+            }
+            else {
+                $duplicatesSkipped++
+            }
+
+            if (($rowsRead % 100000) -eq 0) {
+                Write-Host ("Processed {0:N0} rows in $([System.IO.Path]::GetFileName($ResolvedInputPath))..." -f $rowsRead)
+            }
+        }
+    }
+    finally {
+        $writer.Dispose()
+        $parser.Close()
     }
 
-    $maxKeyColumn = ($KeyColumns | Measure-Object -Maximum).Maximum
-    if ($maxKeyColumn -gt $header.Count) {
-        throw "KeyColumns contains index $maxKeyColumn but CSV only has $($header.Count) columns."
-    }
+    Write-Host ("Done: $([System.IO.Path]::GetFileName($ResolvedInputPath))")
+    Write-Host ("Rows read: {0:N0}" -f $rowsRead)
+    Write-Host ("Rows written: {0:N0}" -f $rowsWritten)
+    Write-Host ("Duplicates skipped: {0:N0}" -f $duplicatesSkipped)
+    Write-Host ("Short rows skipped (<4 columns): {0:N0}" -f $shortRowsSkipped)
+    Write-Host ("Output: $ResolvedOutputPath")
+}
 
-    $headerWithoutCol1 = if ($header.Count -eq 1) { @() } else { $header[1..($header.Count - 1)] }
-    $writer.WriteLine((ConvertTo-CsvLine -Fields $headerWithoutCol1))
+$inputFiles = @()
 
-    while (-not $parser.EndOfData) {
-        $fields = $parser.ReadFields()
-        $rowsRead++
+if ([string]::IsNullOrWhiteSpace($InputPath)) {
+    $allCsvFiles = @(Get-ChildItem -LiteralPath $scriptDirectory -Filter '*.csv' -File)
+    $inputFiles = @()
 
-        if ($fields.Count -lt 4) {
-            $shortRowsSkipped++
+    foreach ($file in $allCsvFiles) {
+        $isIncluded = $false
+        foreach ($pattern in $IncludeFilePattern) {
+            if ($file.Name -like $pattern) {
+                $isIncluded = $true
+                break
+            }
+        }
+
+        if (-not $isIncluded) {
             continue
         }
 
-        if ($fields.Count -lt $maxKeyColumn) {
-            $shortRowsSkipped++
-            continue
+        $isExcluded = $false
+        if ($null -ne $ExcludeFilePattern) {
+            foreach ($pattern in $ExcludeFilePattern) {
+                if ($file.Name -like $pattern) {
+                    $isExcluded = $true
+                    break
+                }
+            }
         }
 
-        $keyValues = foreach ($col in $KeyColumns) {
-            $fields[$col - 1]
-        }
-
-        $key = New-DedupeKey -Values $keyValues
-        if ($seen.Add($key)) {
-            $outFields = $fields[1..($fields.Count - 1)]
-            $writer.WriteLine((ConvertTo-CsvLine -Fields $outFields))
-            $rowsWritten++
-        }
-        else {
-            $duplicatesSkipped++
-        }
-
-        if (($rowsRead % 100000) -eq 0) {
-            Write-Host ("Processed {0:N0} rows..." -f $rowsRead)
+        if (-not $isExcluded) {
+            $inputFiles += $file
         }
     }
+
+    $inputFiles = @($inputFiles | Sort-Object Name)
+
+    if ($inputFiles.Count -eq 0) {
+        throw "No CSV files matched IncludeFilePattern/ExcludeFilePattern in script directory: $scriptDirectory"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($OutputPath) -and $inputFiles.Count -gt 1) {
+        throw 'When processing multiple input files, do not pass OutputPath. The script writes one .deduped.csv file per input file.'
+    }
+
+    Write-Host ("Matched files: {0}" -f ($inputFiles.Name -join ', '))
 }
-finally {
-    $writer.Dispose()
-    $parser.Close()
+else {
+    if (-not (Test-Path -LiteralPath $InputPath)) {
+        throw "Input CSV not found: $InputPath"
+    }
+
+    $inputFiles = @(Get-Item -LiteralPath $InputPath)
 }
 
-Write-Host ("Done. Rows read: {0:N0}" -f $rowsRead)
-Write-Host ("Rows written: {0:N0}" -f $rowsWritten)
-Write-Host ("Duplicates skipped: {0:N0}" -f $duplicatesSkipped)
-Write-Host ("Short rows skipped (<4 columns): {0:N0}" -f $shortRowsSkipped)
+foreach ($inputFile in $inputFiles) {
+    $resolvedInputPath = (Resolve-Path -LiteralPath $inputFile.FullName).Path
+    $resolvedOutputPath = if (-not [string]::IsNullOrWhiteSpace($OutputPath) -and $inputFiles.Count -eq 1) {
+        $OutputPath
+    }
+    else {
+        Get-DefaultOutputPath -InputItem $inputFile
+    }
+
+    Invoke-DedupeCsvFile -ResolvedInputPath $resolvedInputPath -ResolvedOutputPath $resolvedOutputPath
+}
