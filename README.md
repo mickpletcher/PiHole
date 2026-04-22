@@ -67,7 +67,7 @@ Python is a programming language. Scripts with a `.py` extension are Python scri
 | `Export-PiHoleBlockedQueries.ps1` | A PowerShell script that connects to Pi-hole over SSH and exports blocked DNS queries to `blocked_only_queries.csv` |
 | `Export-PiHoleQueries.ps1` | A PowerShell wrapper that runs both query export scripts in one pass |
 | `Remove-DuplicateCsvRows.ps1` | A PowerShell script that removes column 1 and de-duplicates very large CSV files by key columns |
-| `.gitignore` | Git ignore rules that exclude local CSV data files from commits and pushes |
+| `.gitignore` | Git ignore rules that exclude local generated outputs, logs, editor settings, and secret helper files from commits and pushes |
 
 ---
 
@@ -108,6 +108,14 @@ For sudo, [Export-PiHoleQueries.ps1](Export-PiHoleQueries.ps1) now supports a lo
 The query export scripts now try `sqlite3`, `sudo sqlite3`, `pihole-FTL sqlite3`, and `sudo pihole-FTL sqlite3` in that order. They also use non login shells for remote execution so LXC login banners do not pollute the CSV output.
 
 When you are done, run [Clear-PiHoleSecretEnv.local.ps1](Clear-PiHoleSecretEnv.local.ps1) in the same PowerShell window to remove those env vars from the current session.
+
+Local artifact rules for this repo:
+
+- `*.csv` export inputs and outputs are local working files and are ignored by Git.
+- `logs/` contains local export run logs and is ignored by Git.
+- `.vscode/` is treated as machine-local workspace state and is ignored by Git.
+- Secret helper files such as `Set-PiHoleSecretEnv.local.ps1`, `Clear-PiHoleSecretEnv.local.ps1`, and `PiHoleSudoPassword.local.txt` are intentionally local and ignored by Git.
+- If you ever need to share an ignored artifact for troubleshooting, you can include it intentionally with `git add -f <path>`, but do that only after checking it does not contain secrets or host-specific data.
 
 If you clone this repository on a new machine, create the local env var scripts again because they are intentionally not pushed to GitHub.
 
